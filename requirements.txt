@@ -1,0 +1,8 @@
+flask
+gunicorn
+scikit-learn
+numpy
+requests
+Pillow
+imagehash
+python-dotenv>=1.0.0

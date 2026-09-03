@@ -1,0 +1,3 @@
+Merged from history.zip + ajhdsjahsd.zip on 2026-08-30.
+Backend combines historical/seismic/location-intelligence features with media verification/Gemini/admin review.
+Frontend combines historical GIS dashboard features with verified-photo reporting and admin verification controls.

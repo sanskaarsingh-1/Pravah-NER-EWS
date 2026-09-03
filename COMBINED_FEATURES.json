@@ -1,0 +1,28 @@
+{
+  "base": "ner_ews (1).zip",
+  "combined_with": "234.zip",
+  "preserved_from_base": [
+    "seismic-aware model and USGS seismic endpoint",
+    "live GIS weather/terrain/seismic layers",
+    "3D dashboard and existing public UI"
+  ],
+  "added_from_234": [
+    "EXIF/media verification",
+    "perceptual-hash duplicate detection",
+    "video exact-hash duplicate detection",
+    "verification statuses and flags",
+    "admin verification filters and approve/reject workflow",
+    "Pillow and imagehash dependencies"
+  ],
+  "strict_visual_field_report_gate": {
+    "description": "Uploaded field photos are visually classified and cross-checked against live environmental feeds before insertion into Field Reports.",
+    "vision_model": "Gemini multimodal API",
+    "live_feeds": [
+      "Open-Meteo rainfall/soil moisture",
+      "USGS earthquakes",
+      "photo EXIF GPS/time",
+      "perceptual duplicate hash"
+    ],
+    "fail_closed": true
+  }
+}

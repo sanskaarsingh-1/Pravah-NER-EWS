@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRAVAH — Autonomous Debris-Flow & Slope Hazard Modeling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Yatra+One&family=Rozha+One&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+<style>
+  :root{
+    --basalt: #080b10;
+    --basalt-2: #0f141c;
+    --basalt-card: rgba(15, 20, 28, 0.78);
+    --contour: #1e293b;
+    --contour-soft: #141d2b;
+    --paper: #f1f5f9;
+    --paper-dim: #94a3b8;
+    
+    /* Green Palette */
+    --blue-brand: #15803d;
+    --blue-bright: #4ade80;
+    --blue-glow: rgba(74, 222, 128, 0.32);
+    --cyan-accent: #22c55e;
+    --cyan-glow: rgba(34, 197, 94, 0.35);
+    
+    /* Alert Clays */
+    --clay: #ef4444;
+    --clay-glow: rgba(239, 68, 68, 0.38);
+    --moss: #4ade80;
+    --focus: #60a5fa;
+    --laser-cyan: #00f0ff;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--basalt);
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    line-height:1.55;
+    overflow-x:hidden;
+  }
+  a{color:inherit;}
+  :focus-visible{outline:2px solid var(--focus); outline-offset:3px;}
+
+  /* Ambient Canvas & Contour Layer */
+  #creepCanvas {
+    position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0.65;
+  }
+
+  .contour-field{
+    position:fixed; inset:0; z-index:0; opacity:0.3;
+    background-image:
+      repeating-radial-gradient(circle at 15% 20%, transparent 0, transparent 40px, var(--contour-soft) 41px, transparent 42px),
+      repeating-radial-gradient(circle at 85% 75%, transparent 0, transparent 56px, var(--contour-soft) 57px, transparent 58px);
+    pointer-events:none;
+    animation: pulseDrift 30s ease-in-out infinite alternate;
+  }
+  @keyframes pulseDrift {
+    0% { transform: scale(1) rotate(0deg); }
+    100% { transform: scale(1.04) rotate(1deg); }
+  }
+
+  /* Header */
+  header{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 5vw;
+    background:rgba(8, 11, 16, 0.88);
+    backdrop-filter:blur(16px);
+    border-bottom:1px solid rgba(30, 41, 59, 0.8);
+  }
+  .wordmark{
+    font-family:'Fraunces', serif; font-weight:700; font-size:1.4rem; letter-spacing:0.01em;
+    display:flex; align-items:center; gap:10px;
+    color: #ffffff;
+  }
+  .wordmark .mark{
+    width:24px; height:24px; display:inline-block;
+    filter: drop-shadow(0 0 10px var(--blue-glow));
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .wordmark:hover .mark{ transform: rotate(-12deg) scale(1.15); }
+  nav{display:flex; gap:36px; font-size:0.92rem;}
+  nav a{text-decoration:none; color:var(--paper-dim); transition:all .25s; font-weight:500; position:relative;}
+  nav a::after{
+    content:''; position:absolute; bottom:-4px; left:0; width:0; height:1.5px;
+    background:var(--blue-bright); transition: width .25s ease;
+  }
+  nav a:hover{color:var(--paper);}
+  nav a:hover::after{ width:100%; }
+  
+  .btn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.84rem; font-weight:600;
+    padding:10px 22px; border-radius:4px;
+    border:1px solid var(--blue-bright); color:var(--blue-bright);
+    text-decoration:none; letter-spacing:0.04em;
+    transition: all .25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    white-space:nowrap;
+    display:inline-flex; align-items:center; gap:8px;
+    position:relative; overflow:hidden;
+  }
+  .btn:hover{
+    background:var(--blue-bright); color:var(--basalt); 
+    transform:translateY(-2px); box-shadow:0 10px 25px var(--blue-glow);
+  }
+  .btn.solid{
+    background:linear-gradient(135deg, #15803d 0%, #4ade80 100%);
+    border:none;
+    color:#ffffff;
+    box-shadow: 0 4px 18px var(--blue-glow);
+  }
+  .btn.solid:hover{
+    background:linear-gradient(135deg, #166534 0%, #16a34a 100%);
+    transform:translateY(-2px); 
+    box-shadow:0 12px 28px rgba(74, 222, 128, 0.45);
+  }
+
+  main{position:relative; z-index:1;}
+
+  /* Futuristic Full-Form Showcase Banner */
+  .top-banner-wrapper {
+    max-width: 1440px;
+    margin: 48px auto 0;
+    padding: 0 5vw;
+    display: flex;
+    justify-content: center;
+  }
+  .acronym-showcase-large {
+    width: 100%;
+    max-width: 1220px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+    padding: 28px 48px;
+    background: linear-gradient(135deg, rgba(21, 128, 61, 0.24) 0%, rgba(15, 20, 28, 0.95) 50%, rgba(21, 128, 61, 0.18) 100%);
+    border: 1.5px solid rgba(74, 222, 128, 0.5);
+    border-radius: 20px;
+    backdrop-filter: blur(24px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 45px rgba(74, 222, 128, 0.2);
+  }
+  .acronym-showcase-large::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 8%; right: 8%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--blue-bright), transparent);
+    box-shadow: 0 0 16px var(--blue-bright);
+  }
+  .acronym-tag-large {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+    border: 1.5px solid var(--blue-bright);
+    padding: 10px 20px;
+    border-radius: 14px;
+    box-shadow: 0 6px 24px var(--blue-glow);
+    flex-shrink: 0;
+  }
+  .acronym-tag-large span {
+    font-family: 'Black Ops One', cursive;
+    font-weight: 400;
+    font-size: 2rem;
+    letter-spacing: 0.2em;
+    color: #ffffff;
+    line-height: 1;
+  }
+  .acronym-tag-large small {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.28em;
+    color: #dcfce7;
+    font-weight: 700;
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+  .acronym-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .acronym-title-large {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.52rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    text-transform: uppercase;
+  }
+  .acronym-title-large b {
+    color: var(--blue-bright);
+    font-weight: 800;
+    text-shadow: 0 0 18px rgba(74, 222, 128, 0.7);
+  }
+  .acronym-sub-large {
+    font-family: 'Fraunces', serif;
+    font-size: 0.8rem;
+    color: var(--paper-dim);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Hero Section */
+  .hero{
+    display:grid; grid-template-columns:1.05fr 0.95fr;
+    gap:52px;
+    padding:60px 5vw 75px;
+    align-items:center;
+    max-width:1440px; margin:0 auto;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:0.8rem; letter-spacing:0.14em;
+    color:var(--cyan-accent); text-transform:uppercase; font-weight:600;
+    display:flex; align-items:center; gap:10px; margin-bottom:22px;
+  }
+  .eyebrow::before{content:''; width:24px; height:2px; background:var(--cyan-accent); box-shadow:0 0 8px rgba(34, 197, 94, 0.6);}
+  
+  h1{
+    font-family:'Fraunces', serif; font-weight:600;
+    font-size:clamp(2.4rem, 4.4vw, 4rem);
+    line-height:1.15; letter-spacing:-0.02em;
+    margin-bottom:24px;
+  }
+  h1 em{
+    font-style:italic; color:var(--blue-bright); font-weight:400;
+    text-shadow: 0 0 28px rgba(74, 222, 128, 0.4);
+    margin-right: 0.35em;
+    display: inline-block;
+  }
+  .hero p.lede{
+    font-size:1.12rem; color:var(--paper-dim); max-width:48ch; margin-bottom:34px; line-height: 1.65;
+  }
+  .hero-cta{display:flex; gap:18px; align-items:center; flex-wrap:wrap;}
+
+  /* 3D Visual Mesh Mockup Card with Laser Scanner */
+  .hero-visual-wrapper{
+    position:relative;
+    perspective: 1200px;
+  }
+  .hero-visual{
+    position:relative;
+    border-radius:10px;
+    overflow:hidden;
+    background: radial-gradient(circle at 50% 50%, #0f172a 0%, #080b10 100%);
+    border:1px solid rgba(74, 222, 128, 0.28);
+    box-shadow:0 28px 60px rgba(0,0,0,0.7), 0 0 50px rgba(74, 222, 128, 0.12);
+    aspect-ratio: 4/3;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    transform: rotateY(-5deg) rotateX(4deg);
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.6s ease;
+  }
+  .hero-visual-wrapper:hover .hero-visual{
+    transform: rotateY(0deg) rotateX(0deg) scale(1.02);
+    box-shadow:0 35px 70px rgba(0,0,0,0.85), 0 0 65px rgba(74, 222, 128, 0.25);
+  }
+  .hero-visual-bg{
+    position:absolute; inset:0;
+    background: url('https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat;
+    opacity:0.45;
+    filter: saturate(0.9) contrast(1.25);
+  }
+  .mesh-grid{
+    position:absolute; inset:0;
+    background: 
+      linear-gradient(rgba(74, 222, 128, 0.15) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(74, 222, 128, 0.15) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity:0.65;
+  }
+  
+  /* Vertical Laser Scan Beam */
+  .laser-scan{
+    position:absolute; left:0; right:0; height:3px;
+    background: linear-gradient(90deg, transparent, var(--laser-cyan), transparent);
+    box-shadow: 0 0 18px 4px var(--laser-cyan);
+    animation: laserSweep 5s ease-in-out infinite alternate;
+    z-index:3;
+  }
+  @keyframes laserSweep {
+    0% { top: 4%; opacity: 0.3; }
+    50% { opacity: 1; }
+    100% { top: 92%; opacity: 0.3; }
+  }
+
+  /* Interactive Beacon Tooltips */
+  .radar-point{
+    position:absolute; width:16px; height:16px; border-radius:50%;
+    background:var(--clay); border:2.5px solid #fff;
+    box-shadow:0 0 18px var(--clay);
+    cursor:pointer; z-index:4;
+    transition: transform 0.25s ease;
+  }
+  .radar-point:hover{ transform: scale(1.3); }
+  .radar-point::after{
+    content:''; position:absolute; inset:-10px; border-radius:50%;
+    border:1.5px solid var(--clay);
+    animation: radarRipple 2.2s infinite ease-out;
+  }
+  @keyframes radarRipple {
+    0% { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(2.6); opacity: 0; }
+  }
+
+  .beacon-tooltip{
+    position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
+    background:rgba(8, 11, 16, 0.95); border:1px solid var(--blue-bright);
+    color:var(--paper); padding:6px 12px; border-radius:4px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.7rem; white-space:nowrap;
+    pointer-events:none; opacity:0; transition:opacity 0.2s, transform 0.2s;
+    box-shadow:0 6px 18px rgba(0,0,0,0.8);
+  }
+  .radar-point:hover .beacon-tooltip{ opacity:1; transform:translateX(-50%) translateY(-4px); }
+
+  /* Telemetry Glass Card */
+  .hero-telemetry-card{
+    position:relative; z-index:4;
+    margin:18px; padding:16px 22px;
+    background:rgba(15, 20, 28, 0.88);
+    backdrop-filter:blur(20px);
+    border:1px solid rgba(56, 189, 248, 0.3);
+    border-radius:6px;
+    display:grid; grid-template-columns: repeat(3, 1fr);
+    gap:14px;
+  }
+  .telemetry-item{
+    font-family:'IBM Plex Mono', monospace; font-size:0.78rem;
+  }
+  .telemetry-item span{ display:block; color:var(--paper-dim); font-size:0.68rem; text-transform:uppercase; font-weight:600;}
+  .telemetry-item b{ color:var(--blue-bright); font-size:0.98rem; font-weight:700;}
+
+  /* Stat Strip */
+  .stat-strip{
+    display:grid; grid-template-columns:repeat(5,1fr);
+    border-top:1px solid var(--contour);
+    border-bottom:1px solid var(--contour);
+    max-width:1440px; margin:0 auto;
+    background: rgba(15, 20, 28, 0.55);
+  }
+  .stat{
+    padding:34px 4vw; border-right:1px solid var(--contour);
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position:relative; overflow:hidden;
+  }
+  .stat:hover{ 
+    background: rgba(74, 222, 128, 0.08); 
+    transform: translateY(-2px);
+  }
+  .stat:last-child{border-right:none;}
+  .stat .num{
+    font-family:'IBM Plex Mono', monospace; font-size:2rem; color:var(--blue-bright); font-weight:700;
+  }
+  .stat .label{font-size:0.86rem; color:var(--paper-dim); margin-top:6px; font-weight:500;}
+
+  .pravah-hindi-mark{
+    text-align:center;
+    font-family:'Yatra One', cursive;
+    font-size:4.2rem;
+    letter-spacing:0.04em;
+    color:#4ade80;
+    text-shadow: 0 0 18px rgba(74, 222, 128, 0.75), 0 0 40px rgba(74, 222, 128, 0.4);
+    padding:50px 5vw 0;
+    max-width:1440px; margin:0 auto;
+  }
+
+  /* Features Section with Indian Mountain Imagery */
+  section{padding:120px 5vw; max-width:1440px; margin:0 auto;}
+  .section-head{max-width:700px; margin-bottom:64px;}
+  .section-head .eyebrow{color:var(--cyan-accent);}
+  .section-head .eyebrow::before{background:var(--cyan-accent); box-shadow:0 0 8px rgba(34, 197, 94, 0.6);}
+  .architecture-split{
+    display:grid; grid-template-columns:1fr auto 1fr;
+    gap:44px; align-items:center;
+    max-width:1200px; margin:0 auto 64px;
+  }
+  .architecture-split .divider{
+    width:1px; align-self:stretch;
+    background:linear-gradient(180deg, transparent, var(--contour) 15%, var(--blue-bright) 50%, var(--contour) 85%, transparent);
+    min-height:180px;
+  }
+  .architecture-col{ max-width:560px; }
+  .architecture-col.hindi{ text-align:right; margin-left:auto; }
+  .architecture-col.hindi h2,
+  .architecture-col.hindi p{ font-family:'Yatra One', cursive; }
+  .architecture-col.hindi h2{ font-weight:400; }
+  .architecture-col.english{ text-align:left; }
+  h2{
+    font-family:'Fraunces', serif; font-weight:600;
+    font-size:clamp(2rem, 3.4vw, 2.9rem);
+    line-height:1.14; margin-bottom:18px;
+  }
+  .section-head p{color:var(--paper-dim); font-size:1.08rem; max-width:56ch; line-height: 1.65;}
+
+  .features{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:20px;
+  }
+  .feature{
+    background:var(--basalt-2); padding:38px 30px;
+    border:1px solid var(--contour); border-radius:8px;
+    display:flex; flex-direction:column; justify-content:space-between;
+    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    position:relative; overflow:hidden;
+  }
+  .feature::before{
+    content:''; position:absolute; inset:0; border-radius:8px;
+    padding:1.5px; background:linear-gradient(135deg, transparent, var(--blue-bright), transparent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity:0; transition: opacity 0.4s ease;
+  }
+  .feature:hover{
+    transform:translateY(-6px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 30px rgba(74, 222, 128, 0.15);
+  }
+  .feature:hover::before{ opacity:1; }
+
+  .feature .card-img{
+    width:100%; height:170px; object-fit:cover; border-radius:6px;
+    margin-bottom:26px; opacity:0.88; filter:contrast(1.15) brightness(0.92);
+    border:1px solid var(--contour);
+    transition: all 0.4s ease;
+  }
+  .feature:hover .card-img{
+    opacity:1; transform:scale(1.03); filter:contrast(1.2) brightness(1);
+  }
+  .feature .fnum{
+    font-family:'IBM Plex Mono', monospace; font-size:0.82rem; color:var(--cyan-accent); margin-bottom:12px; font-weight:700;
+  }
+  .feature h3{
+    font-family:'Fraunces', serif; font-weight:600; font-size:1.4rem; margin-bottom:12px;
+  }
+  .feature p{color:var(--paper-dim); font-size:0.95rem; line-height: 1.65;}
+
+  /* Visual Banner */
+  .visual-banner{
+    position:relative; border-radius:10px; overflow:hidden;
+    margin: 50px auto 0;
+    border:1px solid rgba(56, 189, 248, 0.35);
+    box-shadow:0 35px 70px rgba(0,0,0,0.6);
+  }
+  .visual-banner img{
+    width:100%; height:420px; object-fit:cover; display:block;
+    filter: brightness(0.55) contrast(1.25);
+    transition: transform 0.8s ease;
+  }
+  .visual-banner:hover img{ transform: scale(1.03); }
+  
+  .visual-banner-content{
+    position:absolute; inset:0;
+    background: linear-gradient(180deg, transparent 15%, rgba(8, 11, 16, 0.96) 100%);
+    display:flex; flex-direction:column; justify-content:flex-end;
+    padding:44px 5vw;
+  }
+
+  /* Footer */
+  footer{
+    border-top:1px solid var(--contour);
+    padding:50px 5vw; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:24px;
+    color:var(--paper-dim); font-size:0.88rem; background:#05070a;
+  }
+
+  @media (max-width: 960px){
+    .acronym-showcase-large{flex-direction:column; text-align:center; gap:18px; padding:24px 20px;}
+    .acronym-title-large{font-size:1.25rem;}
+    .hero{grid-template-columns:1fr; gap:40px; padding-top:40px;}
+    .stat-strip{grid-template-columns:repeat(2,1fr);}
+    .stat:nth-child(2n){border-right:none;}
+    .features{grid-template-columns:1fr;}
+    .architecture-split{grid-template-columns:1fr;}
+    .architecture-split .divider{width:80%; height:1px; min-height:0; margin:0 auto; background:linear-gradient(90deg, transparent, var(--blue-bright), transparent);}
+    .architecture-col.hindi, .architecture-col.english{text-align:center; margin:0 auto;}
+    nav{display:none;}
+  }
+</style>
+<link rel="stylesheet" href="/static/css/translate-widget.css">
+</head>
+<body>
+
+<!-- Interactive Blue Particle / Hydro-Creep Simulation Canvas -->
+<canvas id="creepCanvas"></canvas>
+<div class="contour-field"></div>
+
+<header>
+  <div class="wordmark">
+    <svg class="mark" viewBox="0 0 24 24" fill="none">
+      <path d="M2 18L9 8L13 13L17 6L22 18" stroke="#4ade80" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+    PRAVAH
+  </div>
+  <nav>
+    <a href="#features">Physics Model</a>
+    <a href="#architecture">3D Radar Pipeline</a>
+    <a href="/dashboard.html">Live Operations</a>
+  </nav>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div class="pravah-translate-wrap">
+      <button id="pravahTranslateBtn" type="button" onclick="pravahToggleTranslate()">
+        <span class="pravah-globe">&#127760;</span><span class="pravah-label">Translate</span>
+      </button>
+      <div id="pravahTranslateWidget"></div>
+    </div>
+    <a href="/dashboard.html" class="btn">
+      <i class="fa-solid fa-cube"></i> Open 3D Platform
+    </a>
+  </div>
+</header>
+
+<div id="alertTicker" style="display:none; background:var(--clay); color:var(--paper); font-family:'IBM Plex Mono', monospace; font-size:0.84rem; padding:12px 5vw; position:relative; z-index:40; align-items:center; gap:14px; box-shadow: 0 4px 20px var(--clay-glow);">
+  <span style="font-weight:700; letter-spacing:0.06em; display:flex; align-items:center; gap:8px;">
+    <i class="fa-solid fa-triangle-exclamation"></i> ACTIVE ALERT
+  </span>
+  <span id="alertTickerText"></span>
+</div>
+
+<main>
+  <!-- Full-Form Centered Showcase Banner with Sci-Fi / Cyber Geotechnical Typography -->
+  <div class="top-banner-wrapper">
+    <div class="acronym-showcase-large">
+      <div class="acronym-tag-large">
+        <span>PRAVAH</span>
+        <small>SYSTEM</small>
+      </div>
+      <div class="acronym-details">
+        <div class="acronym-title-large">
+          <b>P</b>redictive <b>R</b>isk <b>A</b>nalysis &amp; <b>V</b>ulnerability <b>A</b>ssessment for <b>H</b>ills
+        </div>
+        <div class="acronym-sub-large">Autonomous Geotechnical &amp; Debris-Flow Early Warning Network (North East Region)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hero Section with Indian Terrain Hook -->
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Autonomous Terrain Telemetry</div>
+
+      <!-- Headline with clean italic spacing -->
+      <h1>Listening to the hills <em>before</em> the ground gives way.</h1>
+      <p class="lede">Across the eight most landslide-prone states of North-East India, PRAVAH fuses sub-surface pore pressure sensors, live precipitation radar, and 3D terrain models into one continuous flow of intelligence — turning the earliest tremors in the earth into life-saving warnings long before a slope gives way.</p>
+      <div class="hero-cta">
+        <a href="/dashboard.html" class="btn solid">
+          <span>Launch Live 3D Matrix</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </a>
+        <a href="#features" class="btn">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Explore Failure Physics</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- 3D Hero Terrain Visual with 100% Indian Hazard Hotspots -->
+    <div class="hero-visual-wrapper">
+      <div class="hero-visual">
+        <div class="hero-visual-bg"></div>
+        <div class="mesh-grid"></div>
+        <div class="laser-scan"></div>
+        
+        <!-- Indian Location Radar Beacons with Hover Tooltips -->
+        <div class="radar-point" style="top:28%; left:38%;">
+          <div class="beacon-tooltip">Western Ghats (Lonavala Ghat, MH): FoS 0.86 (CRIT)</div>
+        </div>
+        <div class="radar-point" style="top:60%; left:65%;">
+          <div class="beacon-tooltip">Sikkim Himalayas (Teesta Basin, SK): FoS 0.91 (FAIL)</div>
+        </div>
+        <div class="radar-point" style="top:44%; left:82%; background:var(--blue-bright);">
+          <div class="beacon-tooltip">Barail Range (Haflong Scarp, AS): FoS 1.04 (WARN)</div>
+        </div>
+        <div class="radar-point" style="top:74%; left:30%;">
+          <div class="beacon-tooltip">Khasi Hills (Cherrapunji Rift, ML): FoS 0.89 (CRIT)</div>
+        </div>
+
+        <!-- Real-time Indian Telemetry Readout Card -->
+        <div class="hero-telemetry-card">
+          <div class="telemetry-item">
+            <span>Critical Apex</span>
+            <b>Khasi Hills (ML)</b>
+          </div>
+          <div class="telemetry-item">
+            <span>72h Influx</span>
+            <b id="liveRain">286.4 mm</b>
+          </div>
+          <div class="telemetry-item">
+            <span>Failure ($P_f$)</span>
+            <b style="color:var(--clay);">94.8% CRIT</b>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Animated Stat Strip with ML Accuracy -->
+  <div class="stat-strip">
+    <div class="stat">
+      <div class="num" id="statAccuracy">95.87%</div>
+      <div class="label">Gradient Boosting ML Accuracy</div>
+    </div>
+    <div class="stat">
+      <div class="num">0.942</div>
+      <div class="label">ROC-AUC Model Discrimination</div>
+    </div>
+    <div class="stat">
+      <div class="num">62° Oblique</div>
+      <div class="label">Volumetric 3D slope tilt profiling</div>
+    </div>
+    <div class="stat">
+      <div class="num">&lt; 15 min</div>
+      <div class="label">Automated satellite refresh cycle</div>
+    </div>
+    <div class="stat">
+      <div class="num" style="font-size:1.5rem;">8 States 132 Districts</div>
+      <div class="label">North-East region landslide coverage</div>
+    </div>
+  </div>
+
+  <!-- Features Section with Indian Mountain Imagery -->
+  <div class="pravah-hindi-mark">प्रवाह</div>
+  <section id="features">
+    <div class="eyebrow" style="max-width:700px; margin:0 auto 32px;">The Analytical Architecture</div>
+    <div class="architecture-split">
+      <div class="architecture-col hindi">
+        <h2>पहाड़ पहले फुसफुसाते हैं, प्रवाह पहले सुनता है।</h2>
+        <p>पूर्वोत्तर भारत की सबसे संवेदनशील पर्वतीय ढलानों के लिए बनाया गया, प्रवाह भू-तकनीकी दबाव, वर्षा और मिट्टी की संतृप्ति को जोड़कर आपदा से पहले ही चेतावनी दे देता है।</p>
+      </div>
+      <div class="divider"></div>
+      <div class="architecture-col english">
+        <h2>Mountains whisper first, PRAVAH listens first.</h2>
+        <p>Built for the most vulnerable slopes of North-East India, PRAVAH fuses geotechnical pressure, live rainfall, and soil saturation data to raise the alarm before the mountain ever falls.</p>
+      </div>
+    </div>
+    
+    <div class="features">
+      <!-- Indian Mountain Image 1: Western Ghats / Sahyadri Range -->
+      <div class="feature">
+        <img src="https://images.unsplash.com/photo-1596895111956-bf1cf0599ce5?auto=format&fit=crop&w=600&q=80" alt="Western Ghats Sahyadri mountain ridge" class="card-img" />
+        <div>
+          <div class="fnum">01 / HYDRO-DYNAMICS</div>
+          <h3>Antecedent Rain Influx</h3>
+          <p>Every terrain voxel across the Western Ghats and Himalayan belts is scored continuously against cumulative 72-hour precipitation and saturation thresholds.</p>
+        </div>
+      </div>
+
+      <!-- Indian Mountain Image 2: Sikkim / Eastern Himalayas -->
+      <div class="feature">
+        <img src="https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?auto=format&fit=crop&w=600&q=80" alt="Sikkim Himalayas terrain relief" class="card-img" />
+        <div>
+          <div class="fnum">02 / VOLUMETRIC DEM</div>
+          <h3>3D Terrain Draping</h3>
+          <p>Switch seamlessly from planar 2D overview maps into an immersive 62° tilted 3D elevation mesh draped with live satellite and shear scarp contours.</p>
+        </div>
+      </div>
+
+      <!-- Indian Mountain Image 3: Meghalaya / Cherrapunji Escarpments -->
+      <div class="feature">
+        <img src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=600&q=80" alt="Meghalaya Khasi Hills Escarpment" class="card-img" />
+        <div>
+          <div class="fnum">03 / POINT INSPECTION</div>
+          <h3>Localized Scarp Telemetry</h3>
+          <p>Select any auto-discovered red beacon across Indian mountain corridors to fly the 3D camera directly into the slope and inspect its Factor of Safety ($FoS$).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual Cinematic Section Banner (Himalayan Ridge) -->
+    <div class="visual-banner" id="architecture">
+      <img src="https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?auto=format&fit=crop&w=1400&q=80" alt="High altitude Himalayan mountain pass in India" />
+      <div class="visual-banner-content">
+        <div class="eyebrow" style="color:var(--blue-bright);">Continuous Dissemination Protocol</div>
+        <h2 style="color:#fff; max-width:620px; margin-bottom:12px;">Engineered for Instant Disaster Response across India.</h2>
+        <p style="color:var(--paper-dim); max-width:580px; margin-bottom:22px;">Common Alerting Protocol (CAP) emergency broadcasts dispatch directly to State and District Disaster Management Authorities the exact moment slope stability indices breach safety thresholds.</p>
+        <div>
+          <a href="/dashboard.html" class="btn solid">Launch 3D GIS Platform</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wordmark" style="font-size:1.15rem;">
+    <svg class="mark" viewBox="0 0 24 24" fill="none">
+      <path d="M2 18L9 8L13 13L17 6L22 18" stroke="#4ade80" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+    PRAVAH
+  </div>
+  <p>© 2026 PRAVAH Debris-Flow & Landslide Early Warning System — India[cite: 1]</p>
+</footer>
+
+<!-- Interactive Blue Particle / Hydro-Creep Simulation Script -->
+<script>
+  const canvas = document.getElementById('creepCanvas');
+  const ctx = canvas.getContext('2d');
+  let width, height, particles = [];
+
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  class Particle {
+    constructor() { this.reset(); }
+    reset() {
+      this.x = Math.random() * width;
+      this.y = Math.random() * height;
+      this.vx = (Math.random() - 0.5) * 0.4;
+      this.vy = 0.3 + Math.random() * 0.6;
+      this.size = 1 + Math.random() * 1.8;
+      this.alpha = 0.12 + Math.random() * 0.4;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      if (this.y > height || this.x < 0 || this.x > width) this.reset();
+    }
+    draw() {
+      ctx.fillStyle = `rgba(74, 222, 128, ${this.alpha})`;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  for (let i = 0; i < 70; i++) particles.push(new Particle());
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+    particles.forEach(p => { p.update(); p.draw(); });
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  // Telemetry fluctuation ticker
+  setInterval(() => {
+    const rain = (284 + Math.random() * 4).toFixed(1);
+    const rainEl = document.getElementById('liveRain');
+    if (rainEl) rainEl.textContent = `${rain} mm`;
+  }, 3500);
+
+  // Dynamically load live accuracy metrics from Flask backend
+  fetch('/api/predict', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rain_72h_mm: 120, soil_moisture_pct: 50, slope_deg: 30 })
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.model_metrics && res.model_metrics.accuracy) {
+        const accuracyPct = (res.model_metrics.accuracy * 100).toFixed(1) + '%';
+        const accEl = document.getElementById('statAccuracy');
+        if (accEl) accEl.textContent = accuracyPct;
+      }
+    })
+    .catch(() => {});
+
+  // Early-warning ticker
+  fetch('/api/alerts')
+    .then(r => r.json())
+    .then(alerts => {
+      if (!Array.isArray(alerts) || alerts.length === 0) return;
+      const latest = alerts[0];
+      const ticker = document.getElementById('alertTicker');
+      document.getElementById('alertTickerText').textContent =
+        `${latest.district} — ${latest.message} (${new Date(latest.dispatched_at).toLocaleString()})`;
+      ticker.style.display = 'flex';
+    })
+    .catch(() => {});
+</script>
+
+<!-- PRAVAH Site-wide Translate Widget scripts -->
+<script src="/static/js/translate-widget.js"></script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+</body>
+</html>

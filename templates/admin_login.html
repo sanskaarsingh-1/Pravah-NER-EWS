@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Login — Pravah</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#f4f2ea; --paper:#fbfaf5; --line:#e6e2d3; --ink:#1b2a24; --ink-soft:#425049;
+    --muted:#8a8f7f; --green-deep:#182c24; --gold:#f0b93a; --gold-ink:#3a2c08;
+    --danger:#b8402f; --danger-bg:#f6e3dd; --danger-line:#e6c3b8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; padding:0; height:100%;}
+  body{
+    background:var(--cream); color:var(--ink); font-family:'Inter', sans-serif;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px;
+  }
+  .login-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:16px;
+    padding:36px 32px; width:100%; max-width:380px; box-shadow:0 10px 30px rgba(27,42,36,0.07);
+  }
+  .mark{ width:40px; height:40px; border-radius:10px; background:var(--gold); display:flex;
+    align-items:center; justify-content:center; margin-bottom:16px; }
+  .mark svg{ width:22px; height:22px; }
+  h1{ font-family:'Space Grotesk', sans-serif; font-size:1.3rem; margin:0 0 4px; }
+  .sub{ color:var(--muted); font-size:0.85rem; margin:0 0 24px; }
+  label{ display:block; font-size:0.78rem; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
+  input[type="password"]{
+    width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:9px;
+    font-size:0.92rem; font-family:inherit; margin-bottom:16px; background:#fff; color:var(--ink);
+  }
+  input[type="password"]:focus{ outline:none; border-color:var(--gold); }
+  button{
+    width:100%; padding:12px; border:none; border-radius:9px; background:var(--green-deep);
+    color:var(--cream); font-weight:600; font-size:0.92rem; cursor:pointer; font-family:inherit;
+  }
+  button:hover{ opacity:0.92; }
+  .error{
+    background:var(--danger-bg); border:1px solid var(--danger-line); color:var(--danger);
+    border-radius:9px; padding:10px 13px; font-size:0.82rem; margin-bottom:16px;
+  }
+  .back-link{ display:block; text-align:center; margin-top:18px; font-size:0.8rem; color:var(--muted); text-decoration:none; }
+  .back-link:hover{ color:var(--ink); }
+</style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M2 18L9 8L13 13L17 6L22 18" stroke="#1b2a24" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+    <h1>Admin access</h1>
+    <p class="sub">Pravah NER Early Warning Console — restricted panel.</p>
+    {% if error %}<div class="error"><i class="fa-solid fa-triangle-exclamation"></i> {{ error }}</div>{% endif %}
+    <form method="POST" action="{{ url_for('admin_login') }}">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autofocus required>
+      <button type="submit"><i class="fa-solid fa-lock"></i> Sign in</button>
+    </form>
+    <a class="back-link" href="{{ url_for('dashboard_page') }}"><i class="fa-solid fa-arrow-left"></i> Back to public dashboard</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# Environment variables / API keys
+.env
+*.env
+1.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Database
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Uploaded files
+static/uploads/reports/*
+!static/uploads/reports/.gitkeep

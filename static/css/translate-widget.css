@@ -1,0 +1,106 @@
+/* PRAVAH — Site-wide Google Translate Widget
+   Shared across index.html, dashboard.html, dashboard-3d.html, gis.html
+   Placed inline within each page's own header, to the left of that
+   page's existing action button(s). */
+
+.pravah-translate-wrap{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+#pravahTranslateBtn{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(10, 16, 13, 0.88);
+  border: 1px solid rgba(74, 222, 128, 0.55);
+  color: #eafff0;
+  font-family: 'Inter', 'IBM Plex Mono', system-ui, -apple-system, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  transition: all .2s cubic-bezier(0.2,0.8,0.2,1);
+  white-space: nowrap;
+}
+#pravahTranslateBtn:hover{
+  background: rgba(74, 222, 128, 0.2);
+  border-color: #4ade80;
+  transform: translateY(-1px);
+}
+#pravahTranslateBtn .pravah-globe{
+  font-size: 0.98rem;
+  line-height: 1;
+}
+
+#pravahTranslateWidget{
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 99999;
+  display: none;
+  background: #0b1310;
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 220px;
+  box-shadow: 0 18px 44px rgba(0,0,0,0.6);
+}
+#pravahTranslateWidget.active{ display:block; }
+
+@media (max-width: 640px){
+  #pravahTranslateBtn span.pravah-label{ display:none; }
+  #pravahTranslateBtn{ padding:10px 12px; }
+  #pravahTranslateWidget{ right:0; min-width:200px; }
+}
+
+/* --- Tame Google Translate's own default styling --- */
+.goog-te-banner-frame{ display:none !important; }
+body{ top: 0 !important; }
+.goog-te-gadget{
+  font-family: inherit !important;
+  font-size: 0 !important;
+  color: #cbd5c9 !important;
+}
+.goog-te-gadget .goog-te-combo{
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.86rem;
+  background: #111a16;
+  color: #eafff0;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  padding: 7px 8px;
+  width: 100%;
+}
+.goog-logo-link, .goog-te-gadget span{ display:none !important; }
+.skiptranslate iframe{ display:none !important; }
+#goog-gt-tt, .goog-te-balloon-frame{ display:none !important; }
+.goog-text-highlight{ background:none !important; box-shadow:none !important; }
+
+
+/* --- Searchable language picker --- */
+.pravah-language-search{
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  margin:0 0 8px;
+  padding:8px 10px;
+  background:#111a16;
+  color:#eafff0;
+  border:1px solid rgba(74,222,128,0.35);
+  border-radius:6px;
+  outline:none;
+  font-family:'Inter',system-ui,sans-serif;
+  font-size:0.86rem;
+}
+.pravah-language-search::placeholder{
+  color:#8b9a90;
+}
+.pravah-language-search:focus{
+  border-color:#4ade80;
+  box-shadow:0 0 0 2px rgba(74,222,128,0.12);
+}

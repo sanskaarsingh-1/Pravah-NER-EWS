@@ -1,0 +1,2729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pravah — Regional Hazard Picture</title>
+
+<!-- MapLibre GL JS (real 2D/3D terrain map) -->
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+
+<!-- Chart.js (rainfall watch bars) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+<!-- Fonts: Space Grotesk (display/numbers), Inter (body), IBM Plex Mono (labels) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --cream:#f4f2ea;
+    --paper:#fbfaf5;
+    --paper-2:#f7f5ee;
+    --line:#e6e2d3;
+    --ink:#1b2a24;
+    --ink-soft:#425049;
+    --muted:#8a8f7f;
+    --green-deep:#182c24;
+    --green-mid:#213b31;
+    --gold:#f0b93a;
+    --gold-ink:#3a2c08;
+    --danger:#b8402f;
+    --danger-bg:#f6e3dd;
+    --danger-line:#e6c3b8;
+    --elevated:#b9791f;
+    --elevated-bg:#f7ecd6;
+    --elevated-line:#ecd6ac;
+    --watch:#2f6f58;
+    --watch-bg:#e4ede6;
+    --watch-line:#c9dbcc;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .display{ font-family:'Space Grotesk', sans-serif; }
+  a{ color:inherit; }
+  ::selection{ background:var(--gold); color:var(--gold-ink); }
+  :focus-visible{ outline:2px solid var(--watch); outline-offset:2px; }
+
+  /* ---------- Header ---------- */
+  header{
+    background:var(--green-deep);
+    color:#f3f1e8;
+    padding:14px 5vw;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; flex-wrap:wrap;
+    border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+  .brand{ display:flex; align-items:center; gap:11px; }
+  .brand .mark{
+    width:38px; height:38px; border-radius:9px; background:var(--gold);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .brand .mark svg{ width:20px; height:20px; }
+  .brand .word{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1.15rem; line-height:1.1; letter-spacing:0.01em; }
+  .brand .sub{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.12em; color:rgba(243,241,232,0.55); text-transform:uppercase; margin-top:2px; }
+
+  .header-mid{ display:flex; align-items:center; gap:22px; font-size:0.8rem; }
+  .header-mid .region-label{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.1em; color:rgba(243,241,232,0.5); text-transform:uppercase; }
+  .header-mid .region-name{ font-weight:600; font-size:0.9rem; }
+  .status-pill{ display:flex; align-items:center; gap:7px; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:0.06em; text-transform:uppercase; color:rgba(243,241,232,0.85); }
+  .status-dot{ width:7px; height:7px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 3px rgba(74,222,128,0.18); }
+  .status-dot.offline{ background:#f87171; box-shadow:0 0 0 3px rgba(248,113,113,0.18); }
+
+  .btn-gold{
+    display:flex; align-items:center; gap:8px;
+    background:var(--gold); color:var(--gold-ink);
+    font-weight:600; font-size:0.82rem;
+    padding:9px 16px; border-radius:8px; border:none; cursor:pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-gold:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(240,185,58,0.35); }
+
+  /* ---------- Layout ---------- */
+  main{ max-width:1360px; margin:0 auto; padding:34px 5vw 70px; }
+
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:0.16em;
+    color:var(--watch); text-transform:uppercase; font-weight:600; margin-bottom:8px;
+  }
+  h1.page-title{
+    font-family:'Space Grotesk', sans-serif; font-weight:700;
+    font-size:clamp(1.9rem, 3.4vw, 2.7rem); line-height:1.08; margin:0 0 8px;
+    letter-spacing:-0.01em;
+  }
+  .page-sub{ color:var(--ink-soft); font-size:0.98rem; max-width:56ch; margin:0; }
+
+  .top-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:26px; }
+  .updated{ display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; color:var(--muted); white-space:nowrap; padding-top:6px; }
+  .updated button{ background:none; border:1px solid var(--line); color:var(--ink-soft); border-radius:6px; width:24px; height:24px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .4s ease, border-color .2s ease; }
+  .updated button:hover{ border-color:var(--watch); }
+  .updated button.spin i{ animation:spin .7s linear; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- Stat cards ---------- */
+  .stat-row{ display:grid; grid-template-columns:repeat(5, 1fr); gap:0; background:var(--paper); border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-bottom:26px; box-shadow:0 1px 2px rgba(28,40,34,0.03); }
+  .stat{ padding:20px 22px; border-right:1px solid var(--line); }
+  .stat:last-child{ border-right:none; }
+  .stat-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .stat-label{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.1em; color:var(--muted); text-transform:uppercase; }
+  .stat-icon{ width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:0.75rem; flex-shrink:0; }
+  .stat-num{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:2.1rem; line-height:1; letter-spacing:-0.01em; }
+  .stat-cap{ font-size:0.78rem; color:var(--muted); margin-top:5px; }
+
+
+  /* ---------- Live telemetry ---------- */
+  .telemetry-strip{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+    margin-bottom:26px;
+  }
+  .telemetry-card{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px;
+    box-shadow:0 1px 2px rgba(28,40,34,0.03);
+  }
+  .telemetry-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .telemetry-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.62rem;
+    letter-spacing:.1em;
+    color:var(--muted);
+    text-transform:uppercase;
+  }
+  .telemetry-icon{
+    width:28px;
+    height:28px;
+    border-radius:7px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    color:var(--watch);
+    flex-shrink:0;
+  }
+  .telemetry-main{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+  }
+  .telemetry-value{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.75rem;
+    font-weight:700;
+    line-height:1;
+  }
+  .telemetry-unit{
+    font-size:.76rem;
+    color:var(--muted);
+  }
+  .telemetry-meta{
+    margin-top:7px;
+    font-size:.73rem;
+    color:var(--ink-soft);
+    line-height:1.45;
+  }
+  .telemetry-status{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.62rem;
+    color:var(--watch);
+    text-transform:uppercase;
+  }
+  .telemetry-status .dot{
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:var(--watch);
+  }
+  .telemetry-status.warn{ color:var(--elevated); }
+  .telemetry-status.warn .dot{ background:var(--elevated); }
+  .telemetry-status.bad{ color:var(--danger); }
+  .telemetry-status.bad .dot{ background:var(--danger); }
+
+  @media (max-width:980px){
+    .telemetry-strip{ grid-template-columns:1fr; }
+  }
+
+  /* ---------- Card shell ---------- */
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 1px 2px rgba(28,40,34,0.03); }
+  .card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .card-head-left{ display:flex; align-items:flex-start; gap:11px; }
+  .card-icon{ width:32px; height:32px; border-radius:8px; background:var(--paper-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--watch); flex-shrink:0; font-size:0.85rem; }
+  .card-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1.02rem; margin:1px 0 0; }
+  .icon-btn{ background:none; border:1px solid var(--line); color:var(--ink-soft); border-radius:7px; width:28px; height:28px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.75rem; }
+  .icon-btn:hover{ border-color:var(--watch); color:var(--watch); }
+
+  .grid-wrap{ display:grid; grid-template-columns:2fr 1fr; gap:22px; align-items:start; }
+  .col-stack{ display:flex; flex-direction:column; gap:22px; }
+
+  @media (max-width: 980px){
+    .stat-row{ grid-template-columns:repeat(2,1fr); }
+    .stat{ border-bottom:1px solid var(--line); }
+    .grid-wrap{ grid-template-columns:1fr; }
+  }
+
+  /* ---------- Map card ---------- */
+  select.district-select{
+    font-family:'Inter', sans-serif; font-size:0.82rem; color:var(--ink);
+    background:var(--paper-2); border:1px solid var(--line); border-radius:8px;
+    padding:8px 30px 8px 12px; appearance:none; cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%23425049' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat; background-position:right 10px center;
+  }
+  .map-toolbar-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .map-toolbar-row .hint{ font-size:0.78rem; color:var(--muted); }
+  .toolbar-left{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:1; min-width:0; }
+  .district-search-wrap{ position:relative; flex:1; min-width:170px; max-width:260px; }
+  .district-search-wrap i{ position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:0.78rem; pointer-events:none; }
+  input.district-search{
+    width:100%; font-family:'Inter', sans-serif; font-size:0.82rem; color:var(--ink);
+    background:var(--paper-2); border:1px solid var(--line); border-radius:8px;
+    padding:8px 12px 8px 30px;
+  }
+  input.district-search:focus{ outline:2px solid var(--watch); outline-offset:1px; }
+  .search-results{
+    position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:20;
+    background:var(--paper); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 8px 22px rgba(28,40,34,0.14); max-height:220px; overflow-y:auto; display:none;
+  }
+  .search-results.open{ display:block; }
+  .search-results .res-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; cursor:pointer; font-size:0.82rem; }
+  .search-results .res-item:hover, .search-results .res-item.active{ background:var(--paper-2); }
+  .search-results .res-state{ font-size:0.68rem; color:var(--muted); font-family:'IBM Plex Mono', monospace; }
+  .search-results .res-empty{ padding:10px 12px; font-size:0.8rem; color:var(--muted); }
+  .district-marker-popup .dp-name{ font-weight:700; font-size:0.82rem; margin-bottom:4px; }
+  .district-marker-popup .dp-row{ display:flex; justify-content:space-between; gap:14px; font-size:0.72rem; padding:1px 0; }
+  .district-marker-popup .dp-row span:last-child{ font-weight:600; }
+
+  #mapFrame{ position:relative; height:460px; border-radius:10px; overflow:hidden; border:1px solid var(--line); background:#0e1b17; }
+  #map{ position:absolute; inset:0; }
+
+  .map-badge{
+    position:absolute; top:12px; left:12px; z-index:5;
+    background:rgba(11,17,14,0.72); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.1); border-radius:9px; padding:9px 12px;
+    color:#f3f1e8; max-width:230px; pointer-events:none;
+  }
+  .map-badge .t1{ font-family:'IBM Plex Mono', monospace; font-size:0.6rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(243,241,232,0.6); }
+  .map-badge .t2{ font-size:0.76rem; margin-top:2px; line-height:1.3; }
+
+  .map-controls{ position:absolute; top:12px; right:12px; z-index:6; display:flex; flex-direction:column; gap:7px; }
+  .map-ctrl-btn{
+    width:34px; height:34px; border-radius:8px; border:1px solid rgba(255,255,255,0.14);
+    background:rgba(11,17,14,0.72); backdrop-filter:blur(6px); color:#f3f1e8;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.85rem;
+    transition:background .15s ease;
+  }
+  .map-ctrl-btn:hover{ background:rgba(240,185,58,0.85); color:var(--gold-ink); }
+  .map-ctrl-btn.active{ background:var(--gold); color:var(--gold-ink); border-color:var(--gold); }
+
+  .layer-popover{
+    position:absolute; top:0; right:42px; z-index:7;
+    background:rgba(17,26,22,0.92); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.12);
+    border-radius:9px; padding:9px; width:172px; display:none; color:#f3f1e8;
+  }
+  .layer-popover.open{ display:block; }
+  .layer-popover label{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:0.74rem; padding:6px 4px; cursor:pointer; }
+  .layer-popover label + label{ border-top:1px solid rgba(255,255,255,0.08); }
+
+  .map-legend{
+    position:absolute; bottom:12px; left:12px; z-index:5;
+    background:rgba(11,17,14,0.72); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.1); border-radius:9px; padding:10px 12px;
+    color:#f3f1e8; font-size:0.72rem;
+  }
+  .map-legend .lt{ font-family:'IBM Plex Mono', monospace; font-size:0.6rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(243,241,232,0.6); margin-bottom:6px; }
+  .map-legend .row{ display:flex; align-items:center; gap:7px; margin-top:4px; }
+  .map-legend .dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+  .map-coord{
+    position:absolute; bottom:12px; right:12px; z-index:5;
+    background:rgba(11,17,14,0.72); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:6px 10px;
+    color:#f3f1e8; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
+  }
+  .maplibregl-popup-content{ background:var(--green-deep); color:#f3f1e8; border-radius:8px; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; padding:10px 12px; }
+  .maplibregl-popup-tip{ border-top-color:var(--green-deep) !important; border-bottom-color:var(--green-deep) !important; }
+
+  /* ---------- Alerts ---------- */
+  .alert-count{ font-size:0.78rem; color:var(--muted); }
+  .alert-item{ border-radius:10px; padding:12px 13px; margin-bottom:10px; border:1px solid; }
+  .alert-item:last-child{ margin-bottom:0; }
+  .alert-item.critical{ background:var(--danger-bg); border-color:var(--danger-line); }
+  .alert-item.warning{ background:var(--elevated-bg); border-color:var(--elevated-line); }
+  .alert-item.watch{ background:var(--watch-bg); border-color:var(--watch-line); }
+  .alert-top{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  .alert-title{ font-weight:700; font-size:0.86rem; }
+  .alert-when{ font-size:0.68rem; color:var(--muted); white-space:nowrap; font-family:'IBM Plex Mono', monospace; }
+  .alert-body{ font-size:0.8rem; color:var(--ink-soft); margin-top:4px; line-height:1.4; }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; padding:3px 8px; border-radius:20px; margin-top:8px; }
+  .badge::before{ content:''; width:6px; height:6px; border-radius:50%; }
+  .badge.critical{ background:#f3d3ca; color:var(--danger); } .badge.critical::before{ background:var(--danger); }
+  .badge.warning{ background:#f2e2bf; color:var(--elevated); } .badge.warning::before{ background:var(--elevated); }
+  .badge.watch{ background:#d3e6da; color:var(--watch); } .badge.watch::before{ background:var(--watch); }
+  .empty-note{ font-size:0.82rem; color:var(--muted); padding:8px 2px; }
+
+  /* ---------- Rainfall ---------- */
+  .live-chip{ display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.08em; color:var(--watch); text-transform:uppercase; }
+  .live-chip .dot{ width:6px; height:6px; border-radius:50%; background:var(--watch); animation:pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1;} 50%{ opacity:0.35;} }
+  .rain-chart-wrap{ height:170px; position:relative; overflow:hidden; }
+  .rain-chart-wrap canvas{ position:relative; z-index:1; width:100% !important; height:100% !important; }
+  .rain-chart-status{ position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; text-align:center; font-size:.74rem; color:var(--muted); padding:12px; pointer-events:none; background:var(--paper); }
+  .rain-chart-status.hidden{ display:none; }
+  .rain-legend{ display:flex; gap:18px; margin-top:10px; font-size:0.72rem; color:var(--muted); }
+  .rain-legend .row{ display:flex; align-items:center; gap:6px; }
+  .rain-legend .sw{ width:9px; height:9px; border-radius:2px; }
+
+  /* ---------- Field reports ---------- */
+  table.reports{ width:100%; border-collapse:collapse; font-size:0.82rem; }
+  table.reports th{ text-align:left; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); font-weight:600; padding:0 8px 8px; border-bottom:1px solid var(--line); }
+  table.reports td{ padding:11px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.reports tr:last-child td{ border-bottom:none; }
+  table.critical-zones{ width:100%; border-collapse:collapse; font-size:0.82rem; }
+  table.critical-zones th{ text-align:left; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); font-weight:600; padding:0 8px 8px; border-bottom:1px solid var(--line); }
+  table.critical-zones td{ padding:11px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  table.critical-zones tr:last-child td{ border-bottom:none; }
+  .critical-zone-row{ cursor:pointer; transition:background .15s ease; }
+  .critical-zone-row:hover{ background:var(--paper-2); }
+  .critical-zone-row:focus-visible{ outline:2px solid var(--watch); outline-offset:-2px; }
+  .risk-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:var(--danger-bg); color:var(--danger); font-family:'IBM Plex Mono',monospace; font-size:.64rem; font-weight:700; }
+  .locate-btn{ border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:7px; padding:6px 9px; font-size:.72rem; cursor:pointer; }
+  .locate-btn:hover{ border-color:var(--watch-line); background:var(--watch-bg); }
+  .critical-zone-note{ font-size:.72rem; color:var(--muted); margin-top:8px; }
+  .rep-district{ font-weight:600; }
+  .rep-desc{ color:var(--muted); font-size:0.78rem; margin-top:2px; }
+  .sev-dots{ display:flex; gap:3px; }
+  .sev-dots span{ width:7px; height:7px; border-radius:50%; background:var(--line); }
+  .sev-dots span.on{ background:var(--elevated); }
+  .status-chip{ font-size:0.7rem; background:var(--paper-2); border:1px solid var(--line); color:var(--ink-soft); padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .rep-time{ color:var(--muted); font-size:0.76rem; white-space:nowrap; }
+
+  /* ---------- Signal confidence ---------- */
+  .signal-card{ background:var(--green-deep); color:#f3f1e8; border-radius:14px; padding:20px; position:relative; overflow:hidden; }
+  .signal-card::after{
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(circle at 85% 0%, rgba(240,185,58,0.16), transparent 55%);
+    pointer-events:none;
+  }
+  .signal-card .eyebrow{ color:var(--gold); }
+  .signal-card .card-title{ color:#f3f1e8; }
+  .signal-num{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:2.6rem; line-height:1; margin:14px 0 6px; }
+  .signal-cap{ font-size:0.8rem; color:rgba(243,241,232,0.65); display:flex; align-items:center; gap:6px; }
+  .signal-icon{ width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; color:var(--gold); }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(20,26,22,0.55); backdrop-filter:blur(2px); z-index:100; display:none; align-items:center; justify-content:center; padding:16px; }
+  .modal-overlay.open{ display:flex; }
+  .modal{ background:var(--paper); border-radius:14px; max-width:420px; width:100%; padding:22px; box-shadow:0 24px 60px rgba(20,26,22,0.35); }
+  .modal-head{ position:sticky; top:-22px; z-index:5; background:var(--paper); padding:4px 0 12px; }
+  .report-actions{ position:sticky; bottom:-22px; z-index:5; background:var(--paper); padding:12px 0 4px; margin-top:2px; }
+  .media-preview-wrap{ position:relative; margin-top:8px; }
+  .media-preview-wrap img{ display:block; width:100%; max-height:190px; object-fit:contain; border-radius:8px; background:var(--green-deep); }
+  .media-remove{ position:absolute; top:8px; right:8px; width:34px; height:34px; border:0; border-radius:50%; background:rgba(20,26,22,.88); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1rem; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+  .media-remove:hover{ transform:scale(1.05); }
+  @media (max-height:700px){ .modal{ max-height:calc(100vh - 16px); padding:16px; } .modal-head{ top:-16px; } .report-actions{ bottom:-16px; } .media-preview-wrap img{ max-height:150px; } }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .modal-head h3{ font-family:'Space Grotesk', sans-serif; margin:0; font-size:1.05rem; }
+  .modal label{ font-size:0.76rem; color:var(--ink-soft); font-weight:600; display:block; margin-bottom:5px; }
+  .modal .field{ margin-bottom:13px; }
+  .modal input, .modal select, .modal textarea{
+    width:100%; font-family:'Inter', sans-serif; font-size:0.86rem; padding:9px 11px;
+    border:1px solid var(--line); border-radius:8px; background:var(--paper-2); color:var(--ink);
+  }
+  .modal .row2{ display:flex; gap:10px; }
+  .modal .row2 .field{ flex:1; }
+  .modal-note{ font-size:0.74rem; color:var(--muted); margin-top:10px; min-height:16px; }
+  .btn-submit{ width:100%; background:var(--green-deep); color:#f3f1e8; border:none; border-radius:8px; padding:11px; font-weight:600; font-size:0.88rem; cursor:pointer; margin-top:4px; }
+  .btn-submit:hover{ background:var(--green-mid); }
+  .modal-close{ background:none; border:none; font-size:1rem; color:var(--muted); cursor:pointer; }
+
+  /* ---------- Command & telemetry (NASA viewer / dispatcher / sensors) ---------- */
+  .section-divider{ margin:40px 0 22px; }
+  .telemetry-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:22px; align-items:start; }
+  @media (max-width: 980px){ .telemetry-grid{ grid-template-columns:1fr; } }
+
+  label.small{ font-size:0.7rem; color:var(--ink-soft); font-weight:600; display:block; margin-bottom:5px; }
+  .input-sm{ font-family:'IBM Plex Mono', monospace; font-size:0.78rem; padding:8px 10px; border:1px solid var(--line); border-radius:7px; background:var(--paper-2); color:var(--ink); width:100%; }
+  select.input-sm{ font-family:'Inter', sans-serif; }
+  .field-row{ display:flex; gap:8px; margin-bottom:10px; }
+  .field-row > *{ flex:1; min-width:0; }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .chip-btn{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; padding:5px 10px; border-radius:20px; border:1px solid var(--line); background:var(--paper-2); color:var(--ink-soft); cursor:pointer; }
+  .chip-btn:hover{ border-color:var(--watch); color:var(--watch); }
+  .btn-watch{ width:100%; background:var(--watch); color:#fff; border:none; border-radius:8px; padding:10px; font-weight:600; font-size:0.84rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .btn-watch:hover{ background:#255c48; }
+  .nasa-preview{ height:150px; border-radius:9px; background:var(--green-deep); display:flex; align-items:center; justify-content:center; overflow:hidden; color:rgba(243,241,232,0.65); font-size:0.74rem; text-align:center; padding:10px; margin-top:12px; }
+  .nasa-preview img{ width:100%; height:100%; object-fit:cover; }
+
+  .lang-tabs{ display:flex; gap:6px; border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:10px; }
+  .lang-tab{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; padding:5px 10px; border-radius:6px; border:1px solid transparent; background:none; color:var(--muted); cursor:pointer; }
+  .lang-tab.active{ background:var(--watch-bg); color:var(--watch); border-color:var(--watch-line); }
+  .sms-preview{ font-family:'IBM Plex Mono', monospace; font-size:0.76rem; line-height:1.5; background:var(--paper-2); border:1px solid var(--line); border-radius:8px; padding:10px 11px; min-height:56px; color:var(--ink-soft); margin-bottom:10px; }
+  .btn-danger{ width:100%; background:var(--danger); color:#fff; border:none; border-radius:8px; padding:10px; font-weight:600; font-size:0.84rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .btn-danger:hover{ background:#9c3327; }
+  .dispatch-result{ font-family:'IBM Plex Mono', monospace; font-size:0.72rem; color:var(--muted); margin-top:9px; min-height:16px; }
+
+  .status-row{ display:flex; align-items:center; justify-content:space-between; font-size:0.82rem; padding:9px 0; border-bottom:1px solid var(--line); }
+  .status-row:last-child{ border-bottom:none; }
+  .status-val{ font-family:'IBM Plex Mono', monospace; font-size:0.7rem; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .status-val.ok{ background:var(--watch-bg); color:var(--watch); }
+  .status-val.warn{ background:var(--elevated-bg); color:var(--elevated); }
+  .status-val.bad{ background:var(--danger-bg); color:var(--danger); }
+
+  footer{ text-align:center; padding:26px; color:var(--muted); font-size:0.76rem; font-family:'IBM Plex Mono', monospace; }
+</style>
+<link rel="stylesheet" href="/static/css/translate-widget.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M2 18L9 8L13 13L17 6L22 18" stroke="#1b2a24" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>
+    </div>
+    <div>
+      <div class="word">Pravah</div>
+      <div class="sub">NER Early Warning Console</div>
+    </div>
+  </div>
+
+  <div class="header-mid">
+    <div>
+      <div class="region-label">Operating region</div>
+      <div class="region-name">North Eastern Region</div>
+    </div>
+    <div class="status-pill"><span class="status-dot" id="statusDot"></span><span id="statusText">Checking systems…</span></div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:10px;">
+    <div class="pravah-translate-wrap">
+      <button id="pravahTranslateBtn" type="button" onclick="pravahToggleTranslate()">
+        <span class="pravah-globe">&#127760;</span><span class="pravah-label">Translate</span>
+      </button>
+      <div id="pravahTranslateWidget"></div>
+    </div>
+    <a href="/admin/login" title="Admin access" style="text-decoration:none; color:rgba(243,241,232,0.75); border:1px solid rgba(243,241,232,0.2); border-radius:7px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:0.85rem; flex-shrink:0;"><i class="fa-solid fa-user-shield"></i></a>
+    <a href="/gis.html" class="btn-gold" style="text-decoration:none;" title="Open GIS System"><i class="fa-solid fa-map"></i> GIS System</a>
+    <a href="/dashboard-3d.html" class="btn-gold" style="text-decoration:none;" title="Open 3D Terrain View"><i class="fa-solid fa-cube"></i> 3D Terrain</a>
+    <button class="btn-gold" id="reportBtn"><i class="fa-solid fa-flag"></i> Log field report</button>
+  </div>
+</header>
+
+
+<main>
+
+  <div class="top-row">
+    <div>
+      <div class="eyebrow">Live operations / 01</div>
+      <h1 class="page-title">Regional hazard picture</h1>
+      <p class="page-sub" id="pageSub">Loading live district conditions…</p>
+    </div>
+    <div class="updated">
+      <span id="updatedAt">Updated —</span>
+      <button id="refreshBtn" title="Refresh"><i class="fa-solid fa-arrows-rotate"></i></button>
+    </div>
+  </div>
+
+  <!-- STAT ROW -->
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-head"><span class="stat-label">Overall risk</span><span class="stat-icon" style="background:var(--danger-bg); color:var(--danger);"><i class="fa-solid fa-wave-square"></i></span></div>
+      <div class="stat-num" id="statOverallRisk" style="color:var(--danger);">—</div>
+      <div class="stat-cap">regional index</div>
+    </div>
+    <div class="stat">
+      <div class="stat-head"><span class="stat-label">Critical zones</span><span class="stat-icon" style="background:var(--danger-bg); color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i></span></div>
+      <div class="stat-num" id="statCriticalZones" style="color:var(--danger);">—</div>
+      <div class="stat-cap">requiring attention</div>
+    </div>
+    <div class="stat">
+      <div class="stat-head"><span class="stat-label">Monitored districts</span><span class="stat-icon" style="background:var(--watch-bg); color:var(--watch);"><i class="fa-solid fa-location-dot"></i></span></div>
+      <div class="stat-num" id="statDistricts" style="color:var(--watch);">—</div>
+      <div class="stat-cap">across NER</div>
+    </div>
+    <div class="stat">
+      <div class="stat-head"><span class="stat-label">Rainfall · 72h</span><span class="stat-icon" style="background:var(--watch-bg); color:var(--watch);"><i class="fa-solid fa-cloud-rain"></i></span></div>
+      <div class="stat-num" id="statRainfall" style="color:var(--watch);">—</div>
+      <div class="stat-cap">regional accumulation</div>
+    </div>
+    <div class="stat">
+      <div class="stat-head"><span class="stat-label">Historical events</span><span class="stat-icon" style="background:var(--elevated-bg); color:var(--elevated);"><i class="fa-solid fa-clock-rotate-left"></i></span></div>
+      <div class="stat-num" id="statHistoricalEvents" style="color:var(--elevated);">750</div>
+      <div class="stat-cap" id="statHistoricalCap">750</div>
+    </div>
+  </div>
+
+
+  <!-- CRITICAL ZONES -->
+  <div class="card" id="criticalZonesCard" style="margin-top:14px;">
+    <div class="card-head">
+      <div class="card-head-left">
+        <div class="card-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:2px;">Priority response</div>
+          <div class="card-title">Critical zones</div>
+        </div>
+      </div>
+      <span class="mono" style="font-size:.66rem;color:var(--muted);" id="criticalZonesCountLabel">— zones</span>
+    </div>
+    <div id="criticalZonesBody"><div class="empty-note">Loading critical zones…</div></div>
+    <div class="critical-zone-note">Click a district or “Locate” to jump directly to its position on the map.</div>
+  </div>
+
+  <!-- LIVE TELEMETRY -->
+  <div class="telemetry-strip">
+
+    <div class="telemetry-card">
+      <div class="telemetry-head">
+        <span class="telemetry-label">Soil moisture sensors</span>
+        <span class="telemetry-icon"><i class="fa-solid fa-seedling"></i></span>
+      </div>
+      <div class="telemetry-main">
+        <span class="telemetry-value" id="soilSensorValue">—</span>
+        <span class="telemetry-unit">%</span>
+      </div>
+      <div class="telemetry-meta" id="soilSensorMeta">
+        Soil moisture for selected location · sensors online: —
+      </div>
+      <div class="telemetry-status warn" id="soilSensorStatus">
+        <span class="dot"></span>
+        <span>Checking</span>
+      </div>
+    </div>
+
+    <div class="telemetry-card">
+      <div class="telemetry-head">
+        <span class="telemetry-label">Seismic activity</span>
+        <span class="telemetry-icon"><i class="fa-solid fa-mountain"></i></span>
+      </div>
+      <div class="telemetry-main">
+        <span class="telemetry-value" id="seismicValue">—</span>
+        <span class="telemetry-unit">influence</span>
+      </div>
+      <div class="telemetry-meta" id="seismicMeta">
+        Selected-location seismic activity · events: —
+      </div>
+      <div class="telemetry-status warn" id="seismicStatus">
+        <span class="dot"></span>
+        <span>Checking</span>
+      </div>
+    </div>
+
+    <div class="telemetry-card">
+      <div class="telemetry-head">
+        <span class="telemetry-label">Road connectivity</span>
+        <span class="telemetry-icon"><i class="fa-solid fa-road"></i></span>
+      </div>
+      <div class="telemetry-main">
+        <span class="telemetry-value" id="roadValue">—</span>
+        <span class="telemetry-unit">reports · 24h</span>
+      </div>
+      <div class="telemetry-meta" id="roadMeta">
+        Checking recent road disruption reports…
+      </div>
+      <div class="telemetry-status" id="roadStatus">
+        <span class="dot"></span>
+        <span>Checking</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 2+: MAP / ALERTS, then FIELD REPORTS / RAINFALL / SIGNAL -->
+  <div class="grid-wrap">
+
+    <div class="col-stack">
+      <!-- MAP CARD (real MapLibre 2D/3D terrain + hazard grid map) -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-head-left">
+            <div class="card-icon"><i class="fa-solid fa-location-dot"></i></div>
+            <div>
+              <div class="eyebrow" style="margin-bottom:2px;">Spatial intelligence</div>
+              <div class="card-title">District risk map</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="map-toolbar-row">
+          <div class="toolbar-left">
+            <div class="district-search-wrap">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" class="district-search" id="districtSearch" placeholder="Search any district…" autocomplete="off">
+              <div class="search-results" id="districtSearchResults"></div>
+            </div>
+            <select class="district-select" id="districtSelect">
+              <option value="all">All monitored districts</option>
+            </select>
+          </div>
+          <span class="hint">Search or select any of the all monitored districts</span>
+        </div>
+
+        <div id="mapFrame">
+          <div id="map"></div>
+
+          <div class="map-badge">
+            <div class="t1">Regional terrain model</div>
+            <div class="t2">Northeastern India · live district risk surface</div>
+          </div>
+
+          <div class="map-controls">
+            <button class="map-ctrl-btn" id="layersBtn" title="Layers"><i class="fa-solid fa-layer-group"></i></button>
+            <button class="map-ctrl-btn" id="view3dBtn" title="Toggle 3D view"><i class="fa-solid fa-cube"></i></button>
+            <button class="map-ctrl-btn" id="recenterBtn" title="Recenter"><i class="fa-solid fa-crosshairs"></i></button>
+          </div>
+
+          <div class="layer-popover" id="layerPopover">
+            <label><span>Satellite imagery</span><input type="checkbox" id="toggleSatellite" checked></label>
+            <label><span>Topo contours</span><input type="checkbox" id="toggleTopo"></label>
+            <label><span>AI hazard grid</span><input type="checkbox" id="toggleHeatmap" checked></label>
+            <label><span>USGS quakes</span><input type="checkbox" id="toggleQuakes" checked></label>
+             <label><span>Historical landslides</span><input type="checkbox" id="toggleHistoricalLandslides"></label>
+          </div>
+
+          <div class="map-legend">
+            <div class="lt">Risk surface</div>
+            <div class="row"><span class="dot" style="background:#e05a45;"></span>Critical &ge;70</div>
+            <div class="row"><span class="dot" style="background:#e0a83a;"></span>Elevated 40–69</div>
+            <div class="row"><span class="dot" style="background:#4fae86;"></span>Watch &lt;40</div>
+            <div class="row"><span class="dot" style="background:#8b5cf6;"></span>Historical landslide</div>
+          </div>
+
+          <div class="map-coord" id="mapCoord">24.7°N · 92.1°E</div>
+        </div>
+      </div>
+
+      <!-- FIELD REPORTS -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-head-left">
+            <div class="card-icon"><i class="fa-solid fa-file-lines"></i></div>
+            <div>
+              <div class="eyebrow" style="margin-bottom:2px;">Ground truth</div>
+              <div class="card-title">Field reports</div>
+            </div>
+          </div>
+          <button class="icon-btn" id="refreshReportsBtn" title="Refresh"><i class="fa-solid fa-arrows-rotate"></i></button>
+        </div>
+        <table class="reports">
+          <thead>
+            <tr><th>District / type</th><th>Severity</th><th>Status</th><th style="text-align:right;">Reported</th></tr>
+          </thead>
+          <tbody id="reportsBody">
+            <tr><td colspan="4"><div class="empty-note">Loading field reports…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="col-stack">
+      <!-- ACTIVE ALERTS -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-head-left">
+            <div class="card-icon"><i class="fa-solid fa-bell"></i></div>
+            <div>
+              <div class="eyebrow" style="margin-bottom:2px;">Live signal</div>
+              <div class="card-title">Active alerts</div>
+            </div>
+          </div>
+          <span class="alert-count" id="alertCount">— open</span>
+        </div>
+        <div id="alertsList">
+          <div class="empty-note">Loading alert feed…</div>
+        </div>
+      </div>
+
+      <!-- RAINFALL WATCH -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-head-left">
+            <div class="card-icon"><i class="fa-solid fa-droplet"></i></div>
+            <div>
+              <div class="eyebrow" style="margin-bottom:2px;">Hydromet</div>
+              <div class="card-title">Rainfall watch</div>
+            </div>
+          </div>
+          <span class="live-chip"><span class="dot"></span>Live</span>
+        </div>
+        <div class="rain-chart-wrap"><canvas id="rainfallChart"></canvas><div id="rainfallChartStatus" class="rain-chart-status">Loading rainfall data…</div></div>
+        <div class="rain-legend">
+          <div class="row"><span class="sw" style="background:#4fae86;"></span>below threshold</div>
+          <div class="row"><span class="sw" style="background:#e05a45;"></span>threshold exceeded</div>
+        </div>
+      </div>
+
+      <!-- SIGNAL CONFIDENCE -->
+      <div class="signal-card">
+        <div style="position:relative; display:flex; align-items:flex-start; justify-content:space-between;">
+          <div>
+            <div class="eyebrow">Model watch</div>
+            <div class="card-title">Signal confidence</div>
+          </div>
+          <div class="signal-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        </div>
+        <div class="signal-num" id="signalNum" style="position:relative;">—</div>
+        <div class="signal-cap"><i class="fa-solid fa-arrow-trend-up"></i> regional risk</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 3: REPORT A HAZARD (citizen / field-official upload) -->
+  <div class="top-row section-divider" style="margin-bottom:18px;">
+    <div>
+      <div class="eyebrow">Live operations / 02</div>
+      <h1 class="page-title" style="font-size:1.5rem;">Report a hazard</h1>
+      <p class="page-sub">Spotted cracks, slope movement, or a blocked road? Pick a category, attach a photo or short video, and we'll pin it with your location.</p>
+    </div>
+  </div>
+
+  <div class="telemetry-grid">
+
+    <!-- CRACKS -->
+    <div class="card hazard-tile">
+      <div class="card-head">
+        <div class="card-head-left">
+          <div class="card-icon" style="color:var(--elevated);"><i class="fa-solid fa-bolt"></i></div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:2px;">Ground truth</div>
+            <div class="card-title">Cracks</div>
+          </div>
+        </div>
+      </div>
+      <p class="hint" style="margin:0 0 14px;">Ground, wall, or pavement cracks that are new or widening.</p>
+      <button type="button" class="btn-watch hazard-tile-btn" data-hazard="Ground / Slope Cracks">
+        <i class="fa-solid fa-camera"></i> Upload photo/video
+      </button>
+    </div>
+
+    <!-- SLOPE MOVEMENT -->
+    <div class="card hazard-tile">
+      <div class="card-head">
+        <div class="card-head-left">
+          <div class="card-icon" style="color:var(--danger);"><i class="fa-solid fa-mountain"></i></div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:2px;">Ground truth</div>
+            <div class="card-title">Slope movement</div>
+          </div>
+        </div>
+      </div>
+      <p class="hint" style="margin:0 0 14px;">Bulging, slumping, tilting trees or poles, or visible slope creep.</p>
+      <button type="button" class="btn-watch hazard-tile-btn" data-hazard="Slope Movement">
+        <i class="fa-solid fa-camera"></i> Upload photo/video
+      </button>
+    </div>
+
+    <!-- BLOCKED ROADS -->
+    <div class="card hazard-tile">
+      <div class="card-head">
+        <div class="card-head-left">
+          <div class="card-icon" style="color:var(--watch);"><i class="fa-solid fa-road"></i></div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:2px;">Ground truth</div>
+            <div class="card-title">Blocked roads</div>
+          </div>
+        </div>
+      </div>
+      <p class="hint" style="margin:0 0 14px;">Debris, mudflow, or fallen trees/rocks blocking a road.</p>
+      <button type="button" class="btn-watch hazard-tile-btn" data-hazard="Blocked Road">
+        <i class="fa-solid fa-camera"></i> Upload photo/video
+      </button>
+    </div>
+
+  </div>
+</main>
+
+<footer>© 2026 Pravah Debris-Flow &amp; Landslide Early Warning System — India</footer>
+
+<!-- FIELD REPORT MODAL -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Report a hazard</h3>
+      <button class="modal-close" id="closeReportModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="reportForm" enctype="multipart/form-data">
+      <div class="field">
+        <label>District</label>
+        <select id="reportDistrict"></select>
+      </div>
+      <div class="field">
+        <label>Hazard type</label>
+        <select id="reportHazardType">
+          <option>Ground / Slope Cracks</option>
+          <option>Slope Movement</option>
+          <option>Blocked Road</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Lat</label>
+          <input id="reportLat" type="number" step="any">
+        </div>
+        <div class="field">
+          <label>Lon</label>
+          <input id="reportLon" type="number" step="any">
+        </div>
+      </div>
+      <button type="button" id="useMyLocationBtn" style="background:none; border:none; color:var(--watch); font-size:0.78rem; cursor:pointer; padding:0 0 12px; display:flex; align-items:center; gap:6px;">
+        <i class="fa-solid fa-location-crosshairs"></i> Use my current location
+      </button>
+      <div class="field">
+        <label>Photo or video</label>
+        <input id="reportMedia" type="file" accept="image/*" capture="environment" required>
+        <div id="reportMediaPreview" class="media-preview-wrap"></div>
+        <div id="reportVerification" style="display:none; margin-top:10px; padding:12px; border:1px solid var(--line); border-radius:9px; background:var(--paper-2); font-size:.76rem; line-height:1.5;"></div>
+      </div>
+      <div class="field">
+        <label>Severity <span id="reportSeverityOut" class="mono">3</span>/5</label>
+        <input id="reportSeverity" type="range" min="1" max="5" value="3">
+      </div>
+      <div class="field">
+        <label>Remarks</label>
+        <textarea id="reportRemarks" rows="2" placeholder="Anything else responders should know?"></textarea>
+      </div>
+      <div class="report-actions">
+        <button type="submit" class="btn-submit" id="reportSubmitBtn">Submit report</button>
+        <p class="modal-note" id="reportFormNote"></p>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// District centroids — curated set spanning all 8 NER states (Assam,
+// Meghalaya, Arunachal Pradesh, Nagaland, Manipur, Mizoram, Tripura, Sikkim).
+// Each district carries its own representative slope (degrees) grounded in
+// its actual terrain, rather than one flat value shared by every district —
+// a single shared slope was silently suppressing hazard predictions
+// region-wide, since the model treats ~30° as roughly neutral risk.
+// ---------------------------------------------------------------------------
+let DISTRICTS = [];
+
+// Backend is the single source of truth for the complete district registry.
+// The frontend no longer hard-codes district names, coordinates or slopes.
+async function loadDistrictRegistry(){
+  const res = await fetch('/api/districts', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`district registry HTTP ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data.districts) || !data.districts.length) {
+    throw new Error('Backend returned an empty district registry');
+  }
+  DISTRICTS = data.districts.map(d => ({
+    ...d,
+    lat: Number(d.lat),
+    lon: Number(d.lon),
+    slope: Number(d.slope ?? 30)
+  }));
+  return DISTRICTS;
+}
+
+const CAINE_4H_THRESHOLD_MM = 14.82 * Math.pow(4, -0.39) * 4; // Caine (1980) I-D threshold, 4h window
+
+let map, is3D = false, hazardGrid = [];
+let districtStations = null;     // live [rain, soil] per district centroid, cached per refresh cycle
+let liveSeismicSummary = null;
+let liveRoadSummary = null;
+let liveSensorSummary = null;
+let selectedTelemetryDistrictId = 'all';
+let districtResults = [];        // latest per-district hazard predictions (from loadRegionalData)
+let rainfallWatchData = null;
+let districtSelect, reportDistrict;
+const REFRESH_MS = 3 * 60 * 1000; // real-time refresh cadence for live feeds
+
+// ---------------------------------------------------------------------------
+// Geo helpers — haversine distance + inverse-distance-weighted interpolation,
+// used to spread live per-district rain/soil-moisture readings across the
+// whole-NER hazard grid (same methodology described in the README), instead
+// of the placeholder random values this used to ship with.
+// ---------------------------------------------------------------------------
+function haversineKm(lat1, lon1, lat2, lon2){
+  const R = 6371, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function idwInterpolate(lat, lon, stations, key){
+  let weightSum = 0, valueSum = 0;
+  for (const s of stations){
+    const dist = Math.max(0.05, haversineKm(lat, lon, s.lat, s.lon));
+    const weight = 1 / (dist * dist);
+    weightSum += weight;
+    valueSum += weight * s[key];
+  }
+  return weightSum ? valueSum / weightSum : 0;
+}
+
+// Real terrain slope from the elevation-DEM already loaded into the map
+// (central-difference gradient over a ~2km probe), matching the approach
+// used by dashboard-3d.js. Returns null if the terrain tile isn't loaded
+// yet at this point, so callers can fall back to the curated district slope.
+function terrainSlopeAt(lat, lon){
+  if (!map || !map.queryTerrainElevation) return null;
+  try {
+    const d = 0.02;
+    const eLeft = map.queryTerrainElevation({ lng: lon - d, lat });
+    const eRight = map.queryTerrainElevation({ lng: lon + d, lat });
+    const eUp = map.queryTerrainElevation({ lng: lon, lat: lat + d });
+    const eDown = map.queryTerrainElevation({ lng: lon, lat: lat - d });
+    if ([eLeft, eRight, eUp, eDown].some(v => v == null)) return null;
+    const dxKm = haversineKm(lat, lon - d, lat, lon + d) || 0.001;
+    const dyKm = haversineKm(lat - d, lon, lat + d, lon) || 0.001;
+    const dzdx = (eRight - eLeft) / (dxKm * 1000);
+    const dzdy = (eUp - eDown) / (dyKm * 1000);
+    const rad = Math.atan(Math.sqrt(dzdx*dzdx + dzdy*dzdy));
+    return Math.max(2, Math.min(60, rad * 180 / Math.PI));
+  } catch(e) { return null; }
+}
+
+// Live rainfall/soil-moisture at every district centroid, via the backend's
+// /api/weather (IMD-first with an Open-Meteo fallback — same source used
+// everywhere else on this dashboard). Cached per refresh cycle and reused
+// by both the hazard grid and the per-district markers below.
+let districtStationsPromise = null;
+async function fetchDistrictStations(){
+  if (districtStationsPromise) return districtStationsPromise;
+  districtStationsPromise = (async () => {
+    let res = await fetch('/api/regional-districts', { cache: 'no-store' });
+    if (!res.ok) { res = await fetch('/api/regional-dashboard', { cache: 'no-store' }); }
+    if (!res.ok) throw new Error(`regional dashboard HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data.districts) || !data.districts.length) {
+      throw new Error('Invalid regional dashboard response');
+    }
+
+    // The backend is now the only source of district registry + live risk data.
+    // This single response replaces the old registry request + per-district
+    // weather/predict request chain.
+    DISTRICTS = data.districts.map(d => ({
+      ...d,
+      lat: Number(d.lat),
+      lon: Number(d.lon),
+      slope: Number(d.slope ?? 30),
+      rain: Number.isFinite(Number(d.rain_72h_mm)) ? Number(d.rain_72h_mm) : 0,
+      soil: Number.isFinite(Number(d.soil_moisture_pct)) ? Number(d.soil_moisture_pct) : 45,
+      hazard_index: Number(d.hazard_index ?? 0),
+      probability: Number(d.probability ?? 0),
+      seismic_influence: Number(d.seismic_influence ?? 0),
+      soil_moisture_source: d.soil_moisture_source ?? null,
+      soil_sensor_id: d.soil_sensor_id ?? null,
+      level: d.level ?? 'watch',
+      live: d.rain_72h_mm != null || d.soil_moisture_pct != null
+    }));
+
+    districtStations = DISTRICTS;
+    districtResults = DISTRICTS.slice();
+    rainfallWatchData = data.rainfall_watch || null;
+    return DISTRICTS;
+  })();
+  try {
+    return await districtStationsPromise;
+  } finally {
+    districtStationsPromise = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Real MapLibre map — 2D/3D terrain, satellite/topo, hazard grid, USGS quakes.
+// Same backend routes and behaviour as the original console's map.
+// ---------------------------------------------------------------------------
+function initMap(){
+  map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      sources: {
+        'satellite-source': { type: 'raster', tiles: ['/api/tile/satellite/{z}/{x}/{y}'], tileSize: 256 },
+        'topo-source': { type: 'raster', tiles: ['/api/tile/topo/{z}/{x}/{y}'], tileSize: 256 },
+        'terrain-dem': {
+          type: 'raster-dem',
+          tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          encoding: 'terrarium'
+        }
+      },
+      layers: [
+        { id: 'topo-layer', type: 'raster', source: 'topo-source', layout: { visibility: 'none' } },
+        { id: 'satellite-layer', type: 'raster', source: 'satellite-source', layout: { visibility: 'visible' } }
+      ],
+      terrain: { source: 'terrain-dem', exaggeration: 2.2 }
+    },
+    center: [92.9376, 26.2006],
+    zoom: 6.2,
+    pitch: 0,
+    bearing: 0,
+    attributionControl: false
+  });
+
+  map.on('load', () => {
+    // Regional risk/grid loading starts after the backend district registry is ready.
+    // Do not call buildGrid() here with an empty DISTRICTS array.
+    fetchQuakes();
+    renderDistrictMarkers();
+  });
+
+  map.on('mousemove', (e) => {
+    document.getElementById('mapCoord').textContent =
+      `${e.lngLat.lat.toFixed(1)}°N · ${e.lngLat.lng.toFixed(1)}°E`;
+  });
+
+  map.on('click', async (e) => {
+    // Generic map click: open the same location-intelligence popup used
+    // by district markers. Historical results are resolved by the backend.
+    if (map.getLayer('district-markers-layer')) {
+      const districtHits = map.queryRenderedFeatures(e.point, { layers: ['district-markers-layer'] });
+      if (districtHits.length) return;
+    }
+    if (map.getLayer('historical-landslides-layer')) {
+      const historicalHits = map.queryRenderedFeatures(e.point, { layers: ['historical-landslides-layer'] });
+      if (historicalHits.length) return;
+    }
+    await showLocationIntelligence(
+      e.lngLat.lat,
+      e.lngLat.lng,
+      { lngLat: [e.lngLat.lng, e.lngLat.lat] }
+    );
+  });
+}
+
+async function buildGrid(){
+  if (!districtStations) await fetchDistrictStations();
+
+  const points = [];
+  for (let lat = 22.0; lat <= 29.5; lat += 0.75){
+    for (let lon = 88.0; lon <= 97.5; lon += 0.75){
+      const rain = idwInterpolate(lat, lon, districtStations, 'rain');
+      const soil = idwInterpolate(lat, lon, districtStations, 'soil');
+      // Prefer real elevation-derived slope from the loaded terrain DEM;
+      // fall back to the IDW-interpolated curated district slope when the
+      // terrain tile at this point hasn't loaded yet.
+      const terrainSlope = terrainSlopeAt(lat, lon);
+      const slope = terrainSlope != null ? terrainSlope : idwInterpolate(lat, lon, districtStations, 'slope');
+      points.push({
+        lat: +lat.toFixed(3), lon: +lon.toFixed(3),
+        rain_72h_mm: +rain.toFixed(1), soil_moisture_pct: +soil.toFixed(1), slope_deg: +slope.toFixed(1),
+      });
+    }
+  }
+  try {
+    const res = await fetch('/api/predict/grid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points })
+    });
+    const data = await res.json();
+    hazardGrid = data.results || [];
+  } catch(err) { hazardGrid = []; return; }
+
+  const geojson = {
+    type: 'FeatureCollection',
+    features: hazardGrid.map(p => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+      properties: { probability: p.probability, hazard_index: p.hazard_index }
+    }))
+  };
+
+  if (!map.getSource('hazard-points')) {
+    map.addSource('hazard-points', { type: 'geojson', data: geojson });
+    map.addLayer({
+      id: 'hazard-heat',
+      type: 'heatmap',
+      source: 'hazard-points',
+      paint: {
+        'heatmap-weight': ['get', 'probability'],
+        'heatmap-intensity': 2,
+        'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(79,174,134,0)', 0.4, 'rgba(224,168,58,0.75)', 0.8, 'rgba(224,90,69,0.9)'],
+        'heatmap-radius': 42
+      }
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-district markers — every one of the all monitored districts gets its
+// own point on the map, colour-coded by its own live hazard prediction, so
+// the map visibly covers the whole region rather than only the handful of
+// spots that happened to sit under a dense patch of the background heatmap.
+// ---------------------------------------------------------------------------
+function renderDistrictMarkers(){
+  if (!map || !map.isStyleLoaded()) return;
+  const source = districtResults.length ? districtResults : DISTRICTS.map(d => ({ ...d, hazard_index: null }));
+  const geojson = {
+    type: 'FeatureCollection',
+    features: source.map(d => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [d.lon, d.lat] },
+      properties: {
+        id: d.id,
+        name: d.name,
+        state: d.state,
+        hazard_index: d.hazard_index ?? -1,
+        rain: d.rain ?? null,
+        soil: d.soil ?? null,
+        seismic_influence: d.seismic_influence ?? null
+      },
+    })),
+  };
+  if (map.getSource('district-markers')) {
+    map.getSource('district-markers').setData(geojson);
+    return;
+  }
+  map.addSource('district-markers', { type: 'geojson', data: geojson });
+  map.addLayer({
+    id: 'district-markers-layer',
+    type: 'circle',
+    source: 'district-markers',
+    paint: {
+      'circle-radius': 6,
+      'circle-color': [
+        'case',
+        ['<', ['get', 'hazard_index'], 0], '#8a8f7f',
+        ['>=', ['get', 'hazard_index'], 70], '#e05a45',
+        ['>=', ['get', 'hazard_index'], 40], '#e0a83a',
+        '#4fae86',
+      ],
+      'circle-stroke-width': 1.5,
+      'circle-stroke-color': '#fff',
+    },
+  });
+  map.on('click', 'district-markers-layer', async (e) => {
+    const p = e.features[0].properties;
+    const coords = e.features[0].geometry.coordinates;
+    await showLocationIntelligence(coords[1], coords[0], {
+      title: `${p.name}${p.state ? ' · ' + p.state : ''}`,
+      risk: Number(p.hazard_index),
+      lngLat: coords
+    });
+  });
+  map.on('mouseenter', 'district-markers-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'district-markers-layer', () => { map.getCanvas().style.cursor = ''; });
+}
+
+
+let historicalLoadToken = 0;
+let historicalOffset = 0;
+let historicalLoadedCount = 0;
+let historicalSource = null;
+let historicalLoading = false;
+let historicalFeatures = [];
+
+function ensureHistoricalLayer(){
+  if (map.getSource('historical-landslides-source')) return;
+  map.addSource('historical-landslides-source', {
+    type: 'geojson',
+    data: { type:'FeatureCollection', features:[] }
+  });
+  map.addLayer({
+    id: 'historical-landslides-layer',
+    type: 'circle',
+    source: 'historical-landslides-source',
+    layout: { visibility: 'none' },
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3.5, 7, 5, 10, 7, 13, 9],
+      'circle-color': [
+        'match', ['get', 'severity'],
+        'High', '#e05a45',
+        'Moderate', '#e0a83a',
+        'Low', '#4fae86',
+        '#8b5cf6'
+      ],
+      'circle-opacity': 0.9,
+      'circle-stroke-width': 1.5,
+      'circle-stroke-color': '#ffffff'
+    }
+  });
+
+  map.on('click', 'historical-landslides-layer', (e) => {
+    const p = e.features?.[0]?.properties;
+    if (!p) return;
+    const sourceLink = p.source_url
+      ? `<br><br><a href="${p.source_url}" target="_blank" rel="noopener noreferrer">View source report</a>`
+      : '';
+    new maplibregl.Popup()
+      .setLngLat(e.lngLat)
+      .setHTML(`
+        <div style="min-width:230px;line-height:1.5">
+          <b>Historical landslide</b><br>
+          ${p.locality || 'Recorded event'}<br>
+          ${p.district || ''}${p.state ? ', ' + p.state : ''}<hr>
+          <b>Date:</b> ${p.event_date || 'Unknown'}<br>
+          <b>Severity:</b> ${p.severity || 'Unknown'}<br>
+          <b>Trigger:</b> ${p.trigger || 'Not recorded'}<br>
+          <b>Fatalities:</b> ${p.fatalities || 0}<br>
+          <b>Source:</b> ${p.source_org || 'NASA COOLR'}
+          ${sourceLink}
+        </div>
+      `).addTo(map);
+  });
+  map.on('mouseenter', 'historical-landslides-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'historical-landslides-layer', () => { map.getCanvas().style.cursor = ''; });
+}
+
+function appendHistoricalFeatures(rows){
+  ensureHistoricalLayer();
+  const source = map.getSource('historical-landslides-source');
+  if (!source) return;
+  const features = rows
+    .filter(r => Number.isFinite(Number(r.lat)) && Number.isFinite(Number(r.lon)))
+    .map(r => ({
+      type:'Feature',
+      geometry:{type:'Point', coordinates:[Number(r.lon), Number(r.lat)]},
+      properties:r
+    }));
+  historicalFeatures.push(...features);
+  const fc = { type:'FeatureCollection', features:historicalFeatures };
+  // MapLibre processes GeoJSON in a worker; update in chunks rather than
+  // rebuilding the source once per record/page.
+  source.setData(fc);
+  historicalLoadedCount = historicalFeatures.length;
+  const stat = document.getElementById('statHistoricalEvents');
+  if (stat) stat.textContent = '750';
+}
+
+async function loadHistoricalLandslides(options = {}){
+  const toggle = document.getElementById('toggleHistoricalLandslides');
+  if (!toggle?.checked) return;
+  if (historicalLoading) return;
+
+  const token = ++historicalLoadToken;
+  historicalLoading = true;
+  const fresh = !historicalFeatures.length || options.reset === true;
+  if (fresh) {
+    historicalOffset = 0;
+    historicalLoadedCount = 0;
+    historicalSource = null;
+    historicalFeatures = [];
+  }
+
+  try {
+    ensureHistoricalLayer();
+    const source = map.getSource('historical-landslides-source');
+    if (fresh) source.setData({type:'FeatureCollection', features:[]});
+    map.setLayoutProperty('historical-landslides-layer', 'visibility', 'visible');
+
+    // First page is deliberately small: it makes the layer visible quickly.
+    const loadPage = async () => {
+      const res = await fetch(`/api/historical-landslides?offset=${historicalOffset}&limit=500`, { cache:'no-store' });
+      if (!res.ok) throw new Error(`historical landslide API HTTP ${res.status}`);
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : (Array.isArray(data.events) ? data.events : []);
+      historicalSource = data.source || historicalSource || 'Historical source';
+      appendHistoricalFeatures(rows);
+      historicalOffset = Number.isFinite(Number(data.next_offset)) ? Number(data.next_offset) : historicalOffset + rows.length;
+      return data;
+    };
+
+    let data = await loadPage();
+    const cap = document.getElementById('statHistoricalCap');
+    if (cap) cap.textContent = '750';
+
+    // Drain any pages already available, yielding between updates so the
+    // dashboard remains interactive while MapLibre paints the new points.
+    while (data.has_more && token === historicalLoadToken && toggle.checked) {
+      await new Promise(r => setTimeout(r, 20));
+      data = await loadPage();
+      if (!data.events?.length) break;
+    }
+
+    // The local inventory is returned immediately while NASA enrichment runs
+    // server-side. Poll only the count/page boundary; never block first paint.
+    while (token === historicalLoadToken && toggle.checked) {
+      const statusRes = await fetch('/api/historical-landslides?offset=' + historicalOffset + '&limit=500', { cache:'no-store' });
+      if (!statusRes.ok) break;
+      const status = await statusRes.json();
+      const rows = Array.isArray(status.events) ? status.events : [];
+      if (rows.length) {
+        appendHistoricalFeatures(rows);
+        historicalOffset = Number.isFinite(Number(status.next_offset)) ? Number(status.next_offset) : historicalOffset + rows.length;
+      }
+      if (status.background_error) console.warn('Historical enrichment failed:', status.background_error);
+      if (!status.background_loading && !status.has_more) break;
+      await new Promise(r => setTimeout(r, 1200));
+    }
+  } catch(err) {
+    console.warn('Historical landslide data unavailable:', err);
+    const cap = document.getElementById('statHistoricalCap');
+    if (cap) cap.textContent = '750';
+  } finally {
+    if (token === historicalLoadToken) historicalLoading = false;
+  }
+}
+
+async function showLocationIntelligence(lat, lon, context = {}) {
+  const risk = Number(context.risk);
+  const riskColor = risk >= 70 ? '#e05a45' : (risk >= 40 ? '#e0a83a' : '#4fae86');
+
+  const popup = new maplibregl.Popup({maxWidth:'390px'})
+    .setLngLat(context.lngLat || [lon, lat])
+    .setHTML(`
+      <div class="district-marker-popup" style="min-width:290px;max-width:360px">
+        <div class="dp-name">${context.title || 'Selected location'}</div>
+        <div style="color:#8a8f7f">${lat.toFixed(4)}, ${lon.toFixed(4)}</div>
+        <div style="margin-top:8px;color:#6f756f">Loading location data…</div>
+      </div>
+    `)
+    .addTo(map);
+
+  try {
+    const response = await fetch(
+      `/api/location-intelligence?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius_km=100`,
+      { cache:'no-store' }
+    );
+
+    if (!response.ok) {
+      throw new Error(`location intelligence HTTP ${response.status}`);
+    }
+
+    const intel = await response.json();
+    const weather = intel.weather || {};
+    const historical = intel.historical || {};
+    const allEvents = Array.isArray(historical.events) ? historical.events : [];
+
+    // The backend returns events within 100 km. Split them here so the UI
+    // can show the requested 25-km local count and a 100-km fallback.
+    const nearby25 = allEvents.filter(e => Number(e.distance_km) <= 25);
+    const nearest = allEvents.length ? allEvents[0] : null;
+
+    const fatalities25 = nearby25.reduce(
+      (sum, e) => sum + Number(e.fatalities || 0), 0
+    );
+
+    const roadEvents25 = nearby25.filter(e => {
+      const text = `${e.description || ''} ${e.notes || ''} ${e.remarks || ''}`.toLowerCase();
+      return Number(e.road_affected || 0) === 1 || /road|highway|nh-|roadway|blocked/.test(text);
+    }).length;
+
+    const displayEvents = nearby25.length ? nearby25 : allEvents.slice(0, 10);
+    const fallbackUsed = nearby25.length === 0 && !!nearest;
+
+    const displayTitle =
+      context.title ||
+      intel.location?.district ||
+      'Selected location';
+
+    const currentRisk =
+      Number.isFinite(risk) && risk >= 0
+        ? risk
+        : Number(intel.risk?.hazard_index);
+
+    const currentRiskHtml = Number.isFinite(currentRisk) && currentRisk >= 0
+      ? `<div class="dp-row"><span>Current failure risk</span><span style="color:${riskColor}">${Math.round(currentRisk)}%</span></div>`
+      : '';
+
+    const eventCards = displayEvents.slice(0, 10).map(event => `
+      <div style="margin-top:7px;padding:7px;border:1px solid #e6e2d3;border-radius:6px;background:#faf9f4;font-size:.72rem">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <b>${event.locality || event.district || event.state || 'Historical landslide'}</b>
+          <span>${event.severity || 'Unknown'}</span>
+        </div>
+        <div style="color:#8a8f7f;margin-top:2px">
+          ${event.date || event.event_date || 'Unknown date'}
+          · ${Number(event.distance_km).toFixed(1)} km away
+        </div>
+        <div style="color:#6f756f;margin-top:2px">
+          Trigger: ${event.trigger || 'Not recorded'}
+          · Fatalities: ${Number(event.fatalities || 0)}
+        </div>
+        ${event.source_url ? `<a href="${event.source_url}" target="_blank" rel="noopener noreferrer">View source report</a>` : ''}
+      </div>
+    `).join('');
+
+    popup.setHTML(`
+      <div class="district-marker-popup" style="min-width:290px;max-width:360px">
+        <div class="dp-name">${displayTitle}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:#8a8f7f">
+          ${lat.toFixed(4)}, ${lon.toFixed(4)}
+        </div>
+
+        ${currentRiskHtml}
+
+        ${weather.rain_72h_mm != null
+          ? `<div class="dp-row"><span>72h rainfall</span><span>${Math.round(Number(weather.rain_72h_mm))} mm</span></div>`
+          : ''}
+
+        ${weather.soil_moisture_pct != null
+          ? `<div class="dp-row"><span>Soil moisture</span><span>${Math.round(Number(weather.soil_moisture_pct))}%</span></div>`
+          : ''}
+
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e6e2d3">
+          <b>Historical landslides</b>
+
+          <div class="dp-row">
+            <span>Within 25 km</span>
+            <b>${nearby25.length}</b>
+          </div>
+
+          <div class="dp-row">
+            <span>Fatalities within 25 km</span>
+            <b>${fatalities25}</b>
+          </div>
+
+          <div class="dp-row">
+            <span>Road events within 25 km</span>
+            <b>${roadEvents25}</b>
+          </div>
+
+          ${fallbackUsed ? `
+            <div style="margin-top:8px;padding:7px;border-radius:6px;background:#f5f3ec;font-size:.74rem;color:#6f756f">
+              No event was found within 25 km.<br>
+              Showing the nearest real historical event within 100 km:
+              <b>${Number(nearest.distance_km).toFixed(1)} km away</b>.
+            </div>
+          ` : ''}
+
+          ${nearest ? `
+            <div style="margin-top:8px;font-size:.75rem">
+              <b>${fallbackUsed ? 'Nearest historical event' : 'Historical records found'}</b>
+              ${fallbackUsed ? `<br>${nearest.date || nearest.event_date || 'Unknown date'} · ${nearest.locality || nearest.district || nearest.state || 'Recorded event'}` : ''}
+            </div>
+          ` : `
+            <div style="margin-top:7px;color:#8a8f7f;font-size:.76rem">
+              No historical landslide records were returned within 100 km.
+            </div>
+          `}
+
+          ${eventCards}
+        </div>
+
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e6e2d3">
+          <div class="dp-row">
+            <span>Field reports nearby</span>
+            <b>${Number((intel.reports || {}).count || 0)}</b>
+          </div>
+        </div>
+      </div>
+    `);
+  } catch (err) {
+    console.error('Location intelligence error:', err);
+    popup.setHTML(`
+      <div class="district-marker-popup">
+        <div class="dp-name">${context.title || 'Selected location'}</div>
+        <div style="color:#8a8f7f">${lat.toFixed(4)}, ${lon.toFixed(4)}</div>
+        <div style="margin-top:8px;color:#b8402f">
+          Location data unavailable.
+        </div>
+      </div>
+    `);
+  }
+}
+
+function fetchQuakes(){
+  fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson')
+    .then(r => r.json())
+    .then(data => {
+      const inRegion = {
+        type: 'FeatureCollection',
+        features: data.features.filter(f => {
+          const [lon, lat] = f.geometry.coordinates;
+          return lat >= 20 && lat <= 29.5 && lon >= 87 && lon <= 98;
+        })
+      };
+      if (!map.getSource('quakes-source')) {
+        map.addSource('quakes-source', { type: 'geojson', data: inRegion });
+        map.addLayer({
+          id: 'quakes-layer',
+          type: 'circle',
+          source: 'quakes-source',
+          paint: { 'circle-radius': 6, 'circle-color': '#8b5cf6', 'circle-stroke-width': 1.5, 'circle-stroke-color': '#fff' }
+        });
+      }
+    })
+    .catch(() => {});
+}
+
+// Map toolbar wiring
+document.getElementById('toggleSatellite').onchange = (e) => map.setLayoutProperty('satellite-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+document.getElementById('toggleTopo').onchange = (e) => map.setLayoutProperty('topo-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+document.getElementById('toggleHeatmap').onchange = (e) => map.setLayoutProperty('hazard-heat', 'visibility', e.target.checked ? 'visible' : 'none');
+document.getElementById('toggleQuakes').onchange = (e) => map.setLayoutProperty('quakes-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+document.getElementById('toggleHistoricalLandslides').onchange = async (e) => {
+  const checked = !!e.target.checked;
+  try { sessionStorage.setItem('pravah_historical_layer_enabled', checked ? '1' : '0'); } catch (_) {}
+  if (!checked) {
+    historicalLoadToken++;
+    historicalLoading = false;
+    historicalFeatures = [];
+    historicalOffset = 0;
+    if (map.getSource('historical-landslides-source')) {
+      map.getSource('historical-landslides-source').setData({type:'FeatureCollection', features:[]});
+    }
+    if (map.getLayer('historical-landslides-layer')) {
+      map.setLayoutProperty('historical-landslides-layer', 'visibility', 'none');
+    }
+    return;
+  }
+  // Historical data is intentionally lazy-loaded: it must not delay the live
+  // dashboard, and when the box is off no historical points are visible.
+  await loadHistoricalLandslides();
+  if (map.getLayer('historical-landslides-layer')) {
+    map.setLayoutProperty('historical-landslides-layer', 'visibility', 'visible');
+  }
+};
+
+document.getElementById('layersBtn').onclick = () => document.getElementById('layerPopover').classList.toggle('open');
+document.addEventListener('click', (e) => {
+  const pop = document.getElementById('layerPopover');
+  if (!pop.contains(e.target) && e.target.id !== 'layersBtn' && !document.getElementById('layersBtn').contains(e.target)) {
+    pop.classList.remove('open');
+  }
+});
+
+document.getElementById('view3dBtn').onclick = (e) => {
+  is3D = !is3D;
+  map.easeTo({ pitch: is3D ? 62 : 0, bearing: is3D ? -22 : 0, duration: 1400 });
+  e.currentTarget.classList.toggle('active', is3D);
+};
+
+document.getElementById('recenterBtn').onclick = () => {
+  map.easeTo({ center: [92.9376, 26.2006], zoom: 6.2, pitch: is3D ? 62 : 0, bearing: is3D ? -22 : 0, duration: 1000 });
+  districtSelect.value = 'all';
+  const searchInput = document.getElementById('districtSearch');
+  if (searchInput) searchInput.value = '';
+};
+
+// Shared by the district <select> and the search box below, so both ways of
+// picking a district behave identically: fly the camera there and pop open
+// its live hazard reading (reusing whatever loadRegionalData last computed).
+async function focusDistrict(d){
+
+  selectedTelemetryDistrictId =
+    d
+      ? d.id
+      : 'all';
+
+  loadLiveTelemetry();
+
+  if (!d) {
+    map.flyTo({
+      center: [92.9376, 26.2006],
+      zoom: 6.2,
+      duration: 1400
+    });
+    return;
+  }
+  map.flyTo({ center: [d.lon, d.lat], zoom: 9.5, duration: 1400 });
+
+  // IMPORTANT: use the full location-intelligence endpoint here instead of
+  // building a small client-only popup. This makes district search/select
+  // behave exactly like clicking the map and includes real historical
+  // landslide records returned by the backend.
+  const withData = districtResults.find(r => r.id === d.id) || d;
+
+  await showLocationIntelligence(
+    d.lat,
+    d.lon,
+    {
+      title: `${d.name} · ${d.state}`,
+      risk: Number(withData.hazard_index),
+      lngLat: [d.lon, d.lat]
+    }
+  );
+}
+
+function wireDistrictSelect(){
+  if (!districtSelect) return;
+  districtSelect.onchange = (e) => {
+    const d = DISTRICTS.find(x => x.id === e.target.value);
+    focusDistrict(d);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// District search — type any district (or state) name, pick one
+// from the dropdown (or press Enter to jump to the top match), and the map
+// flies there and opens its live hazard popup, same as the select above.
+// ---------------------------------------------------------------------------
+function initDistrictSearch(){
+  const input = document.getElementById('districtSearch');
+  const resultsBox = document.getElementById('districtSearchResults');
+  let activeIdx = -1, matches = [];
+
+  function renderResults(){
+    if (!matches.length) {
+      resultsBox.innerHTML = '<div class="res-empty">No matching district</div>';
+      resultsBox.classList.add('open');
+      return;
+    }
+    resultsBox.innerHTML = matches.map((d, i) => `
+      <div class="res-item${i===activeIdx?' active':''}" data-id="${d.id}">
+        <span>${d.name}</span><span class="res-state">${d.state}</span>
+      </div>
+    `).join('');
+    resultsBox.classList.add('open');
+  }
+
+  function selectDistrict(d){
+    input.value = d.name;
+    resultsBox.classList.remove('open');
+    matches = []; activeIdx = -1;
+    districtSelect.value = d.id;
+    focusDistrict(d);
+  }
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    activeIdx = -1;
+    if (!q) { resultsBox.classList.remove('open'); matches = []; return; }
+    matches = DISTRICTS.filter(d =>
+      d.name.toLowerCase().includes(q) || d.state.toLowerCase().includes(q)
+    ).slice(0, 8);
+    renderResults();
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (!resultsBox.classList.contains('open') || !matches.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(matches.length - 1, activeIdx + 1); renderResults(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(0, activeIdx - 1); renderResults(); }
+    else if (e.key === 'Enter') { e.preventDefault(); selectDistrict(matches[activeIdx >= 0 ? activeIdx : 0]); }
+    else if (e.key === 'Escape') { resultsBox.classList.remove('open'); }
+  });
+
+  resultsBox.addEventListener('click', (e) => {
+    const item = e.target.closest('.res-item');
+    if (!item) return;
+    const d = DISTRICTS.find(x => x.id === item.dataset.id);
+    if (d) selectDistrict(d);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !resultsBox.contains(e.target)) resultsBox.classList.remove('open');
+  });
+}
+
+// ---------------------------------------------------------------------------
+function renderCriticalZonesTable(critical){
+  const body = document.getElementById('criticalZonesBody');
+  const countLabel = document.getElementById('criticalZonesCountLabel');
+  if (!body) return;
+  const rows = Array.isArray(critical) ? [...critical].sort((a,b) => (Number(b.hazard_index)||0) - (Number(a.hazard_index)||0)) : [];
+  if (countLabel) countLabel.textContent = `${rows.length} zone${rows.length === 1 ? '' : 's'}`;
+  if (!rows.length) { body.innerHTML = '<div class="empty-note">No districts are currently above the critical threshold (70).</div>'; return; }
+  body.innerHTML = `<div style="overflow:auto;"><table class="critical-zones"><thead><tr><th>District</th><th>State</th><th>Risk</th><th>Rain · 72h</th><th>Soil</th><th>Action</th></tr></thead><tbody>${rows.map(r => `<tr class="critical-zone-row" data-id="${r.id}" tabindex="0"><td><strong>${r.name}</strong></td><td>${r.state}</td><td><span class="risk-chip">${Number(r.hazard_index)||0}%</span></td><td>${Number.isFinite(Number(r.rain)) ? Number(r.rain).toFixed(1)+' mm' : '—'}</td><td>${Number.isFinite(Number(r.soil)) ? Number(r.soil).toFixed(1)+'%' : '—'}</td><td><button type="button" class="locate-btn" data-locate-id="${r.id}">Locate →</button></td></tr>`).join('')}</tbody></table></div>`;
+  const locate = (id) => { const d = DISTRICTS.find(x => x.id === id); if (d) focusDistrict(d); };
+  body.querySelectorAll('[data-locate-id]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); locate(btn.dataset.locateId); }));
+  body.querySelectorAll('.critical-zone-row').forEach(row => {
+    row.addEventListener('click', e => { if (!e.target.closest('button')) locate(row.dataset.id); });
+    row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); locate(row.dataset.id); } });
+  });
+}
+
+// Regional headline numbers — real per-district predictions from the trained
+// model, using live weather at each district centroid.
+// ---------------------------------------------------------------------------
+let regionalLoadPromise = null;
+async function loadRegionalData(){
+  if (regionalLoadPromise) return regionalLoadPromise;
+  regionalLoadPromise = (async () => {
+  try {
+    const stations = await fetchDistrictStations();
+    districtResults = stations.slice();
+
+    // Populate map/table immediately. The heavier background grid is deferred.
+    renderDistrictMarkers();
+    renderCriticalZonesTable(districtResults.filter(r => r.hazard_index >= 70));
+    loadRainfallChart();
+
+    const overall = districtResults.length
+      ? Math.round(districtResults.reduce((s,r) => s + (Number(r.hazard_index) || 0), 0) / districtResults.length)
+      : 0;
+    const critical = districtResults.filter(r => Number(r.hazard_index) >= 70);
+    const elevated = districtResults.filter(r => Number(r.hazard_index) >= 40 && Number(r.hazard_index) < 70);
+    const rainValues = districtResults.map(r => Number(r.rain)).filter(Number.isFinite);
+    const rainAvg = rainValues.length ? Math.round(rainValues.reduce((s,r) => s + r, 0) / rainValues.length) : null;
+
+    document.getElementById('statOverallRisk').textContent = overall + '%';
+    document.getElementById('statCriticalZones').textContent = critical.length;
+    document.getElementById('statRainfall').textContent = rainAvg == null ? '—' : rainAvg + ' mm';
+    document.getElementById('statDistricts').textContent = DISTRICTS.length;
+    document.getElementById('signalNum').textContent = overall + '%';
+
+    const sub = document.getElementById('pageSub');
+    if (critical.length > 0) {
+      sub.textContent = `Risk is critical in ${critical.slice(0, 5).map(r => r.name).join(', ')}${critical.length > 5 ? ` and ${critical.length - 5} more` : ''}.`;
+    } else if (elevated.length > 0) {
+      sub.textContent = `Risk is elevated across ${elevated.length} district${elevated.length > 1 ? 's' : ''} after sustained rainfall.`;
+    } else {
+      sub.textContent = 'Risk is stable across all Northeast India districts.';
+    }
+
+    stampUpdated();
+
+    // Do not block the first meaningful render on the optional dense grid.
+    if (map && map.isStyleLoaded()) {
+      setTimeout(() => buildGrid().catch(() => {}), 250);
+    }
+  } catch (err) {
+    console.error('Regional dashboard load failed:', err);
+    document.getElementById('pageSub').textContent = 'Live risk data is temporarily unavailable; map remains available.';
+  } finally {
+    regionalLoadPromise = null;
+  }
+  })();
+  return regionalLoadPromise;
+}
+
+function stampUpdated(){
+  const now = new Date();
+  document.getElementById('updatedAt').textContent =
+    'Updated ' + now.toLocaleDateString(undefined, { day:'2-digit', month:'short' }) + ', ' +
+    now.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit', hour12:false });
+}
+
+// ---------------------------------------------------------------------------
+// Active alerts feed
+// ---------------------------------------------------------------------------
+function timeAgo(iso){
+  const d = new Date(iso);
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs>1?'s':''} ago`;
+  const days = Math.round(hrs / 24);
+  return `${days} day${days>1?'s':''} ago`;
+}
+
+async function loadAlerts(){
+  const list = document.getElementById('alertsList');
+  try {
+    const res = await fetch('/api/alerts');
+    const alerts = await res.json();
+    document.getElementById('alertCount').textContent = `${alerts.length} open`;
+    if (!alerts.length) {
+      list.innerHTML = '<div class="empty-note">No alerts dispatched yet.</div>';
+      return;
+    }
+    list.innerHTML = alerts.slice(0, 6).map(a => {
+      const cls = a.level === 'critical' ? 'critical' : a.level === 'warning' ? 'warning' : 'watch';
+      const d = DISTRICTS.find(x => x.id === a.district);
+      return `<div class="alert-item ${cls}">
+        <div class="alert-top">
+          <span class="alert-title">${a.message.split('.')[0]}</span>
+          <span class="alert-when">${timeAgo(a.dispatched_at)}</span>
+        </div>
+        <div class="alert-body">${d ? d.name : (a.district || 'Region')} · ${a.message}</div>
+        <span class="badge ${cls}">${a.level}</span>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    list.innerHTML = '<div class="empty-note">Alert feed unavailable.</div>';
+    document.getElementById('alertCount').textContent = '— open';
+  }
+}
+document.getElementById('refreshBtn').onclick = async (e) => {
+  e.currentTarget.classList.add('spin');
+  setTimeout(() => e.currentTarget.classList.remove('spin'), 700);
+  await loadRegionalData();
+  await loadLiveTelemetry();
+  loadAlerts();
+  loadReports();
+  // Historical inventory refreshes only when its layer is enabled, keeping
+  // the main refresh path fast.
+  if (document.getElementById('toggleHistoricalLandslides')?.checked) {
+    loadHistoricalLandslides();
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Field reports
+// ---------------------------------------------------------------------------
+async function loadReports(){
+  const body = document.getElementById('reportsBody');
+  try {
+    const res = await fetch('/api/reports');
+    const reports = await res.json();
+    if (!reports.length) {
+      body.innerHTML = `<tr><td colspan="4"><div class="empty-note">No field reports yet.</div></td></tr>`;
+      return;
+    }
+    body.innerHTML = reports.slice(0, 8).map(r => {
+      const d = DISTRICTS.find(x => x.id === r.district);
+      const sev = Math.max(1, Math.min(5, r.severity || 1));
+      const dots = Array.from({length:5}, (_,i) => `<span class="${i<sev?'on':''}"></span>`).join('');
+      const mediaTag = r.media_filename
+        ? ` <a href="/static/${r.media_filename}" target="_blank" rel="noopener" title="View attached ${r.media_type || 'media'}" style="color:var(--watch); text-decoration:none;"><i class="fa-solid ${r.media_type === 'video' ? 'fa-video' : 'fa-image'}"></i></a>`
+        : '';
+      return `<tr>
+        <td>
+          <div class="rep-district">${d ? d.name : (r.district || 'Unknown')}</div>
+          <div class="rep-desc">${r.hazard_type || 'Report'}${r.remarks ? ' · ' + r.remarks : ''}${mediaTag}</div>
+        </td>
+        <td><div class="sev-dots">${dots}</div></td>
+        <td><span class="status-chip">Logged</span></td>
+        <td class="rep-time" style="text-align:right;">${timeAgo(r.created_at)}</td>
+      </tr>`;
+    }).join('');
+  } catch(err) {
+    body.innerHTML = `<tr><td colspan="4"><div class="empty-note">Field reports unavailable.</div></td></tr>`;
+  }
+}
+document.getElementById('refreshReportsBtn').onclick = loadReports;
+
+// ---------------------------------------------------------------------------
+// Live telemetry — soil sensors, seismic activity, road connectivity
+// ---------------------------------------------------------------------------
+async function loadLiveTelemetry(){
+
+  // The registry must be loaded before calculating the regional centroid.
+  // Calling this during the initial boot with DISTRICTS=[] produced NaN
+  // coordinates and /api/weather?lat=NaN&lon=NaN.
+  if (!Array.isArray(DISTRICTS) || !DISTRICTS.length) {
+    document.getElementById('soilSensorMeta').textContent = 'Loading district registry…';
+    document.getElementById('soilSensorValue').textContent = '—';
+    setTelemetryStatus('soilSensorStatus', 'Loading', '');
+    document.getElementById('seismicValue').textContent = '—';
+    document.getElementById('seismicMeta').textContent = 'Loading district registry…';
+    setTelemetryStatus('seismicStatus', 'Loading', '');
+    return;
+  }
+
+  const selected =
+    DISTRICTS.find(
+      d => d.id === selectedTelemetryDistrictId
+    );
+
+  /*
+   * For "All monitored districts", use the regional mean location.
+   * When a district is selected, every card below refers to that district.
+   */
+  const lat =
+    selected
+      ? selected.lat
+      : DISTRICTS.reduce(
+          (sum, d) => sum + d.lat,
+          0
+        ) / DISTRICTS.length;
+
+  const lon =
+    selected
+      ? selected.lon
+      : DISTRICTS.reduce(
+          (sum, d) => sum + d.lon,
+          0
+        ) / DISTRICTS.length;
+
+  const label =
+    selected
+      ? selected.name
+      : 'North Eastern Region';
+
+  const regionalRow = selected
+    ? (districtResults.find(r => r.id === selected.id) || null)
+    : null;
+
+
+  // ---------------------------------------------------------
+  // Soil moisture + sensors
+  // ---------------------------------------------------------
+  try {
+
+    const sensorsPromise = fetch(
+      '/api/sensors/latest',
+      { cache: 'no-store' }
+    );
+
+    let weather = null;
+    if (regionalRow) {
+      weather = {
+        source: regionalRow.soil_moisture_source || 'regional',
+        rain_72h_mm: regionalRow.rain_72h_mm,
+        soil_moisture_pct: regionalRow.soil_moisture_pct
+      };
+    } else if (districtResults.length) {
+      const valid = districtResults.filter(r => Number.isFinite(Number(r.rain_72h_mm)));
+      const soilValid = districtResults.filter(r => Number.isFinite(Number(r.soil_moisture_pct)));
+      weather = {
+        source: 'regional',
+        rain_72h_mm: valid.length ? valid.reduce((sum, r) => sum + Number(r.rain_72h_mm), 0) / valid.length : null,
+        soil_moisture_pct: soilValid.length ? soilValid.reduce((sum, r) => sum + Number(r.soil_moisture_pct), 0) / soilValid.length : null
+      };
+    } else {
+      const weatherRes = await fetch(
+        `/api/weather?lat=${lat}&lon=${lon}`,
+        { cache: 'no-store' }
+      );
+      weather = weatherRes.ok ? await weatherRes.json() : null;
+    }
+
+    const sensorsRes = await sensorsPromise;
+
+    const sensorData =
+      sensorsRes.ok
+        ? await sensorsRes.json()
+        : {
+            readings: [],
+            sensors_reporting: 0
+          };
+
+
+    const liveReadings =
+      (sensorData.readings || [])
+        .filter(
+          r => r.is_live
+        );
+
+
+    const soilReadings =
+      liveReadings.filter(
+        r =>
+          String(
+            r.sensor_type ||
+            ''
+          )
+          .toLowerCase()
+          .includes('soil')
+      );
+
+
+    const nearbySoil =
+      soilReadings
+        .filter(
+          r =>
+            r.lat != null &&
+            r.lon != null
+        )
+        .sort(
+          (a,b) =>
+            haversineKm(
+              lat,
+              lon,
+              Number(a.lat),
+              Number(a.lon)
+            ) -
+            haversineKm(
+              lat,
+              lon,
+              Number(b.lat),
+              Number(b.lon)
+            )
+        );
+
+
+    let soilValue =
+      weather &&
+      weather.soil_moisture_pct != null
+        ? Number(
+            weather.soil_moisture_pct
+          )
+        : null;
+
+    let soilSource =
+      weather?.soil_source ||
+      'weather';
+
+
+    /*
+     * The backend already prefers a nearby live ground sensor.
+     * Use it when returned; otherwise show the weather-derived value.
+     */
+    if (
+      weather?.soil_source ===
+      'ground_sensor'
+      &&
+      weather.soil_moisture_pct != null
+    ){
+
+      soilValue =
+        Number(
+          weather.soil_moisture_pct
+        );
+
+      soilSource =
+        `Ground sensor ${
+          weather.soil_sensor_id || ''
+        }`;
+
+    }
+    else if (
+      nearbySoil.length
+    ){
+
+      /*
+       * Extra UI fallback for the regional sensor count.
+       * The actual prediction continues to use app.py's fusion logic.
+       */
+      const value =
+        Number(
+          nearbySoil[0].value
+        );
+
+      soilValue =
+        String(
+          nearbySoil[0].unit ||
+          ''
+        ).includes('%')
+          ? value
+          : (
+              value <= 1
+                ? value * 100
+                : value
+            );
+
+      soilValue =
+        Math.max(
+          0,
+          Math.min(
+            100,
+            soilValue
+          )
+        );
+
+      soilSource =
+        `Ground sensor ${
+          nearbySoil[0].sensor_id ||
+          ''
+        }`;
+
+    }
+
+
+    document.getElementById(
+      'soilSensorValue'
+    ).textContent =
+      soilValue != null
+        ? Math.round(
+            soilValue
+          )
+        : '—';
+
+
+    document.getElementById(
+      'soilSensorMeta'
+    ).textContent =
+      `${
+        label
+      } · Source: ${
+        soilSource
+      } · Sensors online: ${
+        Number(
+          sensorData.sensors_reporting ||
+          soilReadings.length ||
+          0
+        )
+      }`;
+
+
+    setTelemetryStatus(
+      'soilSensorStatus',
+
+      soilValue != null
+        ? (
+            soilSource.toLowerCase()
+              .includes(
+                'sensor'
+              )
+              ? 'Ground sensor'
+              : 'Live weather'
+          )
+        : 'No data',
+
+      soilValue != null
+        ? 'ok'
+        : 'warn'
+    );
+
+
+    liveSensorSummary = {
+      reporting:
+        Number(
+          sensorData.sensors_reporting ||
+          0
+        ),
+
+      soil:
+        soilReadings,
+
+      selectedSoil:
+        soilValue,
+
+      selectedSource:
+        soilSource
+
+    };
+
+
+  } catch(error) {
+
+    console.warn(
+      'Soil telemetry error:',
+      error
+    );
+
+
+    document.getElementById(
+      'soilSensorValue'
+    ).textContent =
+      '—';
+
+
+    document.getElementById(
+      'soilSensorMeta'
+    ).textContent =
+      `${label} · Soil telemetry unavailable.`;
+
+
+    setTelemetryStatus(
+      'soilSensorStatus',
+      'Unavailable',
+      'bad'
+    );
+
+  }
+
+
+  // ---------------------------------------------------------
+  // Seismic activity — reuse the single regional dashboard response.
+  // ---------------------------------------------------------
+  try {
+    const regionalRow = selected ? (districtResults.find(r => r.id === selected.id) || null) : null;
+    const influence = regionalRow ? Number(regionalRow.seismic_influence || 0) :
+      (districtResults.length ? districtResults.reduce((s,r) => s + Number(r.seismic_influence || 0), 0) / districtResults.length : 0);
+    const eventCount = selected ? 0 : (Number(window.__regionalSeismicEvents || 0));
+
+    document.getElementById('seismicValue').textContent = `${Math.round(influence * 100)}%`;
+    document.getElementById('seismicMeta').textContent = selected
+      ? `${label} · regional USGS influence ${Math.round(influence * 100)}%`
+      : `${label} · regional USGS influence ${Math.round(influence * 100)}% · feed sampled once per refresh`;
+    setTelemetryStatus('seismicStatus', 'Live regional', 'ok');
+    liveSeismicSummary = { seismic_influence: influence, events: eventCount };
+  } catch(error) {
+    console.warn('Seismic telemetry error:', error);
+    document.getElementById('seismicValue').textContent = '—';
+    document.getElementById('seismicMeta').textContent = `${label} · USGS seismic feed unavailable.`;
+    setTelemetryStatus('seismicStatus', 'Unavailable', 'bad');
+  }
+
+  // ---------------------------------------------------------
+  // Road disruption / connectivity
+  // ---------------------------------------------------------
+  try {
+
+    const res =
+      await fetch(
+        '/api/road-status',
+        { cache: 'no-store' }
+      );
+
+
+    const data =
+      await res.json();
+
+
+    if(
+      !res.ok
+    ){
+
+      throw new Error(
+        data.error ||
+        'road status unavailable'
+      );
+
+    }
+
+
+    const total =
+      Number(
+        data.reports_24h ||
+        0
+      );
+
+
+    const blocked =
+      Number(
+        data.blocked_reports_24h ||
+        0
+      );
+
+
+    const restricted =
+      Number(
+        data.restricted_reports_24h ||
+        0
+      );
+
+
+    document.getElementById(
+      'roadValue'
+    ).textContent =
+      total;
+
+
+    document.getElementById(
+      'roadMeta'
+    ).textContent =
+      `${blocked} blocked · ${restricted} restricted · field reports in last 24h`;
+
+
+    setTelemetryStatus(
+      'roadStatus',
+
+      blocked
+        ? 'Blocked reports'
+        : restricted
+          ? 'Restricted'
+          : 'No disruption',
+
+      blocked
+        ? 'bad'
+        : restricted
+          ? 'warn'
+          : 'ok'
+    );
+
+
+    liveRoadSummary =
+      data;
+
+
+  } catch(error) {
+
+    console.warn(
+      'Road telemetry error:',
+      error
+    );
+
+
+    document.getElementById(
+      'roadValue'
+    ).textContent =
+      '—';
+
+
+    document.getElementById(
+      'roadMeta'
+    ).textContent =
+      `${label} · Road status unavailable.`;
+
+
+    setTelemetryStatus(
+      'roadStatus',
+      'Unavailable',
+      'bad'
+    );
+
+  }
+
+}
+
+
+function setTelemetryStatus(
+  id,
+  label,
+  state
+){
+
+  const el =
+    document.getElementById(id);
+
+  if(!el)
+    return;
+
+  el.className =
+    `telemetry-status ${state === 'ok' ? '' : state}`.trim();
+
+  el.innerHTML =
+    `<span class="dot"></span><span>${label}</span>`;
+
+}
+
+
+// ---------------------------------------------------------------------------
+// Rainfall watch — live Open-Meteo hourly precipitation for the regional
+// centroid, bucketed into 4h windows and checked against the Caine (1980)
+// rainfall intensity-duration threshold already used to label the model's
+// training data (see README / train_landslide_model.py).
+// ---------------------------------------------------------------------------
+async function loadRainfallChart(){
+  const status = document.getElementById('rainfallChartStatus');
+  if (!status) return;
+
+  status.textContent = 'Loading rainfall data…';
+  status.classList.remove('hidden');
+
+  try {
+    const response = await fetch('/api/rainfall-watch', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`rainfall API HTTP ${response.status}`);
+    const data = await response.json();
+
+    const labels = Array.isArray(data.labels) ? data.labels : [];
+    const values = Array.isArray(data.values)
+      ? data.values.map(v => Number(v))
+      : [];
+
+    if (!labels.length || labels.length !== values.length || values.some(v => !Number.isFinite(v))) {
+      throw new Error('rainfall API returned an invalid time series');
+    }
+
+    rainfallWatchData = { labels, values, source: data.source || 'Open-Meteo' };
+    renderRainfallChart(labels, values);
+    status.classList.add('hidden');
+
+    const liveChip = document.querySelector('.card:has(#rainfallChart) .live-chip');
+    if (liveChip) liveChip.innerHTML =
+      `<span class="dot"></span>${String(rainfallWatchData.source).toUpperCase()}`;
+  } catch (err) {
+    console.warn('Rainfall watch unavailable:', err);
+    rainfallWatchData = null;
+    status.textContent = 'Live rainfall data unavailable.';
+    status.classList.remove('hidden');
+  }
+}
+
+let rainfallChartInstance = null;
+function renderRainfallChart(labels, values){
+  const canvas = document.getElementById('rainfallChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const status = document.getElementById('rainfallChartStatus');
+  if (status) status.classList.add('hidden');
+  if (rainfallChartInstance) {
+    rainfallChartInstance.destroy();
+    rainfallChartInstance = null;
+  }
+  const safeValues = values.map(v => Math.max(0, Number(v) || 0));
+  const colors = safeValues.map(v => v > CAINE_4H_THRESHOLD_MM ? '#e05a45' : '#4fae86');
+  rainfallChartInstance = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: safeValues,
+        backgroundColor: colors,
+        borderRadius: 4,
+        maxBarThickness: 34,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => `${Number(ctx.parsed.y).toFixed(1)} mm / 4h` } }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: '#8a8f7f',
+            font: { family: 'IBM Plex Mono', size: 9 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 9
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: '#e6e2d3' },
+          ticks: {
+            color: '#8a8f7f',
+            font: { size: 10 },
+            callback: value => `${value} mm`
+          }
+        }
+      }
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Field report modal + submission (online direct, offline queued & synced —
+// same behaviour as the original console).
+// ---------------------------------------------------------------------------
+const QUEUE_KEY = 'ner_ews_offline_report_queue';
+function getQueue(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e) { return []; } }
+function setQueue(q){ localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
+
+async function trySyncQueue(){
+  const queue = getQueue();
+  if (!navigator.onLine || queue.length === 0) return;
+  try {
+    const res = await fetch('/api/reports/sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reports: queue })
+    });
+    if (!res.ok) throw new Error('sync failed');
+    setQueue([]);
+    loadReports();
+  } catch(err) { /* stays queued */ }
+}
+window.addEventListener('online', trySyncQueue);
+
+function openReportModal(presetHazardType){
+  document.getElementById('reportModal').classList.add('open');
+  document.getElementById('reportFormNote').textContent = navigator.onLine
+    ? '' : 'You are offline — text details will be queued and sent once you reconnect. Photo/video attachments need a live connection, so please retry those once you\'re back online.';
+  if (presetHazardType) {
+    const sel = document.getElementById('reportHazardType');
+    if ([...sel.options].some(o => o.value === presetHazardType)) sel.value = presetHazardType;
+    document.getElementById('useMyLocationBtn').click();
+  }
+}
+document.getElementById('reportBtn').onclick = () => openReportModal();
+document.querySelectorAll('.hazard-tile-btn').forEach(btn => {
+  btn.onclick = () => openReportModal(btn.dataset.hazard);
+});
+document.getElementById('closeReportModal').onclick = () => document.getElementById('reportModal').classList.remove('open');
+
+document.getElementById('reportSeverity').oninput = (e) => {
+  document.getElementById('reportSeverityOut').textContent = e.target.value;
+};
+let reportClientLat = null;
+let reportClientLon = null;
+let reportClientLocationAccuracy = null;
+let reportClientCapturedAt = null;
+
+function captureReportLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      document.getElementById('reportFormNote').textContent =
+        'Browser GPS is unavailable. The report location will be used as a fallback.';
+      return resolve(null);
+    }
+    navigator.geolocation.getCurrentPosition(pos => {
+      reportClientLat = pos.coords.latitude;
+      reportClientLon = pos.coords.longitude;
+      reportClientLocationAccuracy = pos.coords.accuracy || null;
+      document.getElementById('reportLat').value = reportClientLat;
+      document.getElementById('reportLon').value = reportClientLon;
+      resolve(pos);
+      document.getElementById('reportFormNote').textContent =
+        'GPS captured from this device.';
+      resolve(pos);
+    }, () => {
+      document.getElementById('reportFormNote').textContent =
+        'GPS permission was unavailable. The entered report location will be used as a fallback.';
+      resolve(null);
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  });
+}
+
+document.getElementById('useMyLocationBtn').onclick = () => {
+  captureReportLocation();
+};
+
+
+document.getElementById('reportMedia').onchange = (e) => {
+  const file = e.target.files[0];
+  const preview = document.getElementById('reportMediaPreview');
+  const verification = document.getElementById('reportVerification');
+  preview.innerHTML = ''; verification.style.display = 'none'; verification.innerHTML = '';
+  if (!file) return;
+  // Browser fallback timestamp. It is evidence metadata, not a cryptographic
+  // proof of when the photo was taken; EXIF is preferred by the server.
+  reportClientCapturedAt = file.lastModified ? new Date(file.lastModified).toISOString() : new Date().toISOString();
+  captureReportLocation();
+  const url = URL.createObjectURL(file);
+  preview.innerHTML = `<img src="${url}" alt="Selected field report photo"><button type="button" class="media-remove" id="removeReportMedia" title="Remove photo" aria-label="Remove photo"><i class="fa-solid fa-xmark"></i></button>`;
+  document.getElementById('removeReportMedia').onclick = () => {
+    URL.revokeObjectURL(url);
+    document.getElementById('reportMedia').value = '';
+    reportClientCapturedAt = null;
+    preview.innerHTML = '';
+    verification.style.display = 'none';
+    verification.innerHTML = '';
+  };
+  verification.style.display = 'block';
+  verification.innerHTML = '<b>AI visual gate</b><br>Photo loaded. On submit, the vision model will identify the scene, compare it with your selected hazard, then re-check rainfall, soil moisture, seismic activity and location before the report is accepted.';
+};
+
+document.getElementById('reportForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const district = document.getElementById('reportDistrict').value;
+  const hazardType = document.getElementById('reportHazardType').value;
+  const lat = parseFloat(document.getElementById('reportLat').value);
+  const lon = parseFloat(document.getElementById('reportLon').value);
+  const severity = parseInt(document.getElementById('reportSeverity').value, 10);
+  const remarks = document.getElementById('reportRemarks').value;
+  const mediaFile = document.getElementById('reportMedia').files[0];
+  const createdAt = new Date().toISOString();
+  const noteEl = document.getElementById('reportFormNote');
+  const verificationEl = document.getElementById('reportVerification');
+  const submitBtn = e.submitter || document.querySelector('#reportForm .btn-submit');
+
+  if (!mediaFile || !mediaFile.type.startsWith('image/')) {
+    noteEl.textContent = 'Upload a photo. The image must pass visual AI + live-feed verification before it can enter Field Reports.';
+    return;
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    noteEl.textContent = 'Location is required so the image can be checked against live conditions.';
+    return;
+  }
+  if (!navigator.onLine) {
+    noteEl.textContent = 'A live connection is required for image verification. Nothing will be added while offline.';
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Verifying image + live feeds…';
+  verificationEl.style.display = 'block';
+  verificationEl.innerHTML = '<b>Verification running…</b><br>1. Visual AI is inspecting the photo<br>2. Location/time/duplicate checks are running<br>3. Live rainfall, soil moisture and seismic feeds are being rechecked';
+
+  try {
+    const form = new FormData();
+    const clientId = 'rpt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    form.append('client_id', clientId); form.append('district', district); form.append('hazard_type', hazardType);
+    form.append('lat', lat); form.append('lon', lon); form.append('severity', severity);
+    form.append('remarks', remarks); form.append('created_at', createdAt); form.append('media', mediaFile);
+    if (reportClientCapturedAt) form.append('client_captured_at', reportClientCapturedAt);
+    if (Number.isFinite(reportClientLat) && Number.isFinite(reportClientLon)) {
+      form.append('client_gps_lat', reportClientLat);
+      form.append('client_gps_lon', reportClientLon);
+      if (reportClientLocationAccuracy) form.append('client_gps_accuracy_m', reportClientLocationAccuracy);
+    }
+
+    const res = await fetch('/api/reports', { method: 'POST', body: form });
+    const data = await res.json().catch(() => ({}));
+    const v = data.verification || {};
+    if (!res.ok) {
+      const flags = (v.flags || []).map(x => x.replaceAll('_',' ')).join(', ');
+      verificationEl.innerHTML = `<b style="color:var(--danger);">✕ Verification failed — NOT added to Field Reports</b><br>${v.visual_label ? `Visual identification: <b>${v.visual_label}</b> (${Math.round((v.visual_confidence || 0)*100)}%)<br>` : ''}${v.visual_summary || ''}${v.visual_error ? `<br><small>Visual AI error: ${String(v.visual_error).replaceAll('<','&lt;').replaceAll('>','&gt;')}</small>` : ''}${v.gps_source ? `<br><small>GPS source: ${v.gps_source}</small>` : ''}${v.capture_time_source ? `<br><small>Capture-time source: ${v.capture_time_source}</small>` : ''}${flags ? `<br>Checks: ${flags}` : ''}`;
+      noteEl.textContent = data.message || data.error || 'The image did not pass the verification gate. Check the verification details above.';
+      return;
+    }
+    verificationEl.innerHTML = `<b style="color:var(--watch);">✓ Verified — added to Field Reports</b><br>Visual identification: <b>${v.visual_label || 'hazard'}</b> (${Math.round((v.visual_confidence || 0)*100)}%)<br>${v.visual_summary || 'Image matched the selected hazard.'}`;
+    noteEl.textContent = 'All required checks passed. The field report is now visible on the dashboard.';
+    setTimeout(() => {
+      document.getElementById('reportForm').reset();
+      document.getElementById('reportSeverityOut').textContent = '3';
+      document.getElementById('reportMediaPreview').innerHTML = '';
+      verificationEl.style.display = 'none'; verificationEl.innerHTML = '';
+      document.getElementById('reportModal').classList.remove('open');
+      loadReports();
+    }, 900);
+  } catch (err) {
+    verificationEl.innerHTML = '<b style="color:var(--danger);">✕ Verification service unavailable</b><br>Nothing was added to Field Reports.';
+    noteEl.textContent = 'Could not reach the verification service. Please retry while online.';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit report';
+  }
+};
+
+// ---------------------------------------------------------------------------
+// System status
+// ---------------------------------------------------------------------------
+async function loadHealth(){
+  const dot = document.getElementById('statusDot'), text = document.getElementById('statusText');
+  try {
+    await fetch('/api/health');
+    dot.classList.remove('offline');
+    text.textContent = 'Systems nominal';
+  } catch(err) {
+    dot.classList.add('offline');
+    text.textContent = 'Backend unreachable';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Real-time refresh — re-pull live weather/hazard, alerts, reports, quakes,
+// and health on a fixed cadence so the dashboard keeps reflecting current
+// conditions instead of freezing at whatever was live at page load.
+// ---------------------------------------------------------------------------
+async function refreshAll(){
+  const jobs = [loadHealth(), loadAlerts(), loadReports(), loadRegionalData()];
+  await Promise.allSettled(jobs);
+  await loadLiveTelemetry();
+  if (map && map.isStyleLoaded()) {
+    fetchQuakes();
+    if (document.getElementById('toggleHistoricalLandslides')?.checked) {
+      loadHistoricalLandslides();
+    }
+  }
+  // Historical inventory is skipped when its layer is off, avoiding a slow
+  // NASA fallback attempt on every 3-minute regional refresh.
+}
+
+// Populate selectors from the fast static registry immediately. Live risk
+// data can arrive later without blocking the dashboard UI.
+function populateDistrictSelectors(){
+  districtSelect = document.getElementById('districtSelect');
+  reportDistrict = document.getElementById('reportDistrict');
+  if (!districtSelect || !reportDistrict || !DISTRICTS.length) return;
+  const STATE_ORDER = ['Assam','Meghalaya','Arunachal Pradesh','Nagaland','Manipur','Mizoram','Tripura','Sikkim'];
+  districtSelect.innerHTML = '';
+  reportDistrict.innerHTML = '';
+  STATE_ORDER.forEach(state => {
+    const inState = DISTRICTS.filter(d => d.state === state);
+    if (!inState.length) return;
+    const opts = inState.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    districtSelect.innerHTML += `<optgroup label="${state}">${opts}</optgroup>`;
+    reportDistrict.innerHTML += `<optgroup label="${state}">${opts}</optgroup>`;
+  });
+  wireDistrictSelect();
+  initDistrictSearch();
+}
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+// Browser back/forward cache (bfcache) can restore this dashboard after visiting
+// GIS without running DOMContentLoaded again. Revalidate the MapLibre canvas and
+// redraw the persistent district points when the dashboard becomes visible.
+async function restoreDashboardMapAfterNavigation(){
+  try {
+    if (map) {
+      map.resize();
+      if (map.isStyleLoaded()) renderDistrictMarkers();
+    } else {
+      initMap();
+    }
+
+    // If the page was restored from bfcache, keep the points immediately from
+    // the backend-backed registry, then refresh live risk values in the background.
+    if (!DISTRICTS.length || !districtResults.length) {
+      await loadRegionalData();
+    } else {
+      renderDistrictMarkers();
+      loadRegionalData().catch(err => console.warn('Map point refresh failed:', err));
+    }
+  } catch (err) {
+    console.warn('Dashboard map restore failed:', err);
+  }
+}
+
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    setTimeout(async () => {
+      await restoreDashboardMapAfterNavigation();
+      const toggle = document.getElementById('toggleHistoricalLandslides');
+      if (toggle?.checked) {
+        ensureHistoricalLayer();
+        map.setLayoutProperty('historical-landslides-layer', 'visibility', 'visible');
+        if (!historicalFeatures.length) loadHistoricalLandslides().catch(() => {});
+      }
+    }, 50);
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && map) {
+    setTimeout(() => {
+      try {
+        map.resize();
+        renderDistrictMarkers();
+        const historicalToggle = document.getElementById('toggleHistoricalLandslides');
+        if (historicalToggle?.checked) {
+          ensureHistoricalLayer();
+          map.setLayoutProperty('historical-landslides-layer', 'visibility', 'visible');
+          if (!historicalFeatures.length && !historicalLoading) loadHistoricalLandslides().catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Map visibility restore failed:', err);
+      }
+    }, 50);
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const historicalToggle = document.getElementById('toggleHistoricalLandslides');
+  let historicalEnabled = false;
+  try { historicalEnabled = sessionStorage.getItem('pravah_historical_layer_enabled') === '1'; } catch (_) {}
+  if (historicalToggle) historicalToggle.checked = historicalEnabled;
+
+  // Critical path: map + static district registry first. Never wait for live
+  // weather, telemetry, charts or historical inventory before making the page
+  // interactive.
+  initMap();
+  loadHealth().catch(() => {});
+  loadAlerts().catch(() => {});
+  loadReports().catch(() => {});
+  loadRainfallChart().catch(() => {});
+  trySyncQueue();
+
+  loadDistrictRegistry().then(() => {
+    districtStations = DISTRICTS;
+    districtResults = DISTRICTS.slice();
+    populateDistrictSelectors();
+    document.getElementById('statDistricts').textContent = DISTRICTS.length;
+    if (map && map.isStyleLoaded()) renderDistrictMarkers();
+
+    // Live risk data is deliberately background work. It updates the points
+    // and dashboard numbers when ready, without blocking navigation/return.
+    loadRegionalData().then(() => loadLiveTelemetry()).catch(err => {
+      console.warn('Background regional load failed:', err);
+    });
+  }).catch(err => {
+    console.error('Dashboard district registry failed:', err);
+    document.getElementById('statDistricts').textContent = '—';
+  });
+
+  setInterval(refreshAll, REFRESH_MS);
+});
+</script>
+
+<!-- PRAVAH Site-wide Translate Widget scripts -->
+<script src="/static/js/translate-widget.js"></script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</body>
+</html>

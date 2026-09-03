@@ -1,0 +1,4439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
+<title>Pravah — GIS Hazard Intelligence</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link
+  href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css"
+  rel="stylesheet"
+/>
+
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+<style>
+
+:root{
+    --bg:#07110d;
+    --panel:#0d1b15;
+    --panel2:#13251c;
+    --line:#284b39;
+    --text:#eef7f0;
+    --muted:#9bb3a4;
+    --green:#22c55e;
+    --green2:#4ade80;
+    --gold:#f0b93a;
+    --red:#ef4444;
+    --orange:#f59e0b;
+}
+
+*{
+    box-sizing:border-box;
+}
+
+html,
+body{
+    margin:0;
+    height:100%;
+}
+
+body{
+    font-family:Inter,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    overflow:hidden;
+}
+
+
+/* HEADER */
+
+header{
+    height:66px;
+    background:rgba(7,17,13,.97);
+    border-bottom:1px solid var(--line);
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+
+    padding:0 18px;
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    font-family:Fraunces,serif;
+    font-size:1.15rem;
+    font-weight:700;
+}
+
+.brand-mark{
+    width:34px;
+    height:34px;
+
+    border-radius:8px;
+
+    background:linear-gradient(
+        135deg,
+        #15803d,
+        #4ade80
+    );
+
+    display:grid;
+    place-items:center;
+
+    color:#07110d;
+}
+
+nav{
+    display:flex;
+    gap:8px;
+}
+
+nav a{
+    text-decoration:none;
+    color:var(--muted);
+
+    border:1px solid var(--line);
+    background:var(--panel);
+
+    padding:8px 12px;
+
+    border-radius:7px;
+
+    font-size:.76rem;
+}
+
+nav a:hover{
+    color:var(--green2);
+    border-color:#4f8c68;
+}
+
+
+/* LAYOUT */
+
+.layout{
+    height:calc(100% - 66px);
+
+    display:grid;
+    grid-template-columns:310px 1fr;
+}
+
+
+/* SIDEBAR */
+
+aside{
+    background:#0a1711;
+
+    border-right:1px solid var(--line);
+
+    overflow:auto;
+
+    padding:16px;
+}
+
+h2{
+    font-family:Fraunces,serif;
+
+    margin:0 0 4px;
+
+    font-size:1.25rem;
+}
+
+.subtitle{
+    color:var(--muted);
+
+    font-size:.76rem;
+
+    line-height:1.45;
+
+    margin-bottom:16px;
+}
+
+.section{
+    border-top:1px solid var(--line);
+
+    padding:14px 0;
+}
+
+.section:first-of-type{
+    border-top:none;
+}
+
+.label{
+    font-family:"IBM Plex Mono",monospace;
+
+    font-size:.64rem;
+
+    text-transform:uppercase;
+
+    letter-spacing:.1em;
+
+    color:#8baa99;
+
+    margin-bottom:8px;
+}
+
+
+/* INPUTS */
+
+select,
+input{
+    width:100%;
+
+    background:var(--panel2);
+
+    border:1px solid var(--line);
+
+    color:var(--text);
+
+    border-radius:7px;
+
+    padding:9px;
+
+    font-size:.8rem;
+}
+
+
+/* LAYERS */
+
+.layer{
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:7px 0;
+
+    font-size:.79rem;
+}
+
+.layer input{
+    width:auto;
+}
+
+
+/* DETAILS */
+
+.details{
+    background:var(--panel);
+
+    border:1px solid var(--line);
+
+    border-radius:9px;
+
+    padding:10px;
+}
+
+.metric{
+    display:flex;
+
+    justify-content:space-between;
+
+    padding:7px 0;
+
+    border-bottom:1px solid rgba(40,75,57,.6);
+
+    font-size:.74rem;
+}
+
+.metric:last-child{
+    border-bottom:none;
+}
+
+.metric b{
+    color:var(--green2);
+}
+
+
+/* MAP */
+
+.map-wrap{
+    position:relative;
+}
+
+#map{
+    position:absolute;
+
+    inset:0;
+}
+
+
+/* SEARCH */
+
+.map-top{
+    position:absolute;
+
+    top:14px;
+    left:14px;
+    right:14px;
+
+    z-index:10;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    gap:10px;
+}
+
+.search{
+    display:flex;
+
+    gap:6px;
+
+    width:min(440px,60vw);
+}
+
+.search input{
+    background:rgba(7,17,13,.92);
+
+    backdrop-filter:blur(8px);
+}
+
+.search button{
+    border:none;
+
+    background:var(--green);
+
+    color:#06140c;
+
+    padding:0 15px;
+
+    border-radius:7px;
+
+    font-weight:700;
+
+    cursor:pointer;
+}
+
+
+/* BADGE */
+
+.badge{
+    background:rgba(7,17,13,.9);
+
+    border:1px solid var(--line);
+
+    border-radius:7px;
+
+    padding:9px 11px;
+
+    font-family:"IBM Plex Mono",monospace;
+
+    font-size:.65rem;
+
+    color:var(--green2);
+}
+
+
+/* BOTTOM */
+
+.map-bottom{
+    position:absolute;
+
+    left:14px;
+    bottom:14px;
+
+    z-index:10;
+
+    display:flex;
+
+    gap:8px;
+}
+
+.chip{
+    background:rgba(7,17,13,.93);
+
+    border:1px solid var(--line);
+
+    border-radius:7px;
+
+    padding:7px 9px;
+
+    color:var(--muted);
+
+    font-size:.68rem;
+}
+
+
+/* MOBILE */
+
+@media(max-width:900px){
+
+    .layout{
+        grid-template-columns:1fr;
+    }
+
+    aside{
+        position:absolute;
+
+        z-index:20;
+
+        width:290px;
+
+        height:calc(100% - 66px);
+
+        transform:translateX(-100%);
+
+        transition:.2s;
+    }
+
+    aside.open{
+        transform:translateX(0);
+    }
+
+    #togglePanel{
+        display:block;
+    }
+}
+
+@media(min-width:901px){
+
+    #togglePanel{
+        display:none;
+    }
+}
+
+
+/* Keep map attribution visible on the street basemap */
+.maplibregl-ctrl-attrib{
+    background:rgba(7,17,13,.82) !important;
+    color:#eef7f0 !important;
+    font-size:10px !important;
+}
+.maplibregl-ctrl-attrib a{
+    color:#9be7b2 !important;
+}
+
+/* LIVE GIS TELEMETRY */
+.live-gis-panel{
+    margin-top:10px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:7px;
+}
+.live-gis-item{
+    background:rgba(19,37,28,.72);
+    border:1px solid var(--line);
+    border-radius:7px;
+    padding:8px 9px;
+    font-size:.7rem;
+}
+.live-gis-item .head{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:4px;
+}
+.live-gis-item .title{
+    color:var(--text);
+    font-weight:600;
+}
+.live-gis-item .value{
+    color:var(--green2);
+    font-family:"IBM Plex Mono",monospace;
+}
+.live-gis-item .meta{
+    color:var(--muted);
+    font-size:.64rem;
+    line-height:1.35;
+}
+
+</style>
+<link rel="stylesheet" href="/static/css/translate-widget.css">
+</head>
+
+
+<body>
+
+
+<!-- HEADER -->
+
+<header>
+
+<div class="brand">
+
+<div class="brand-mark">
+    ◎
+</div>
+
+<div>
+    Pravah
+    <span
+      style="
+        font:500 .64rem 'IBM Plex Mono',monospace;
+        color:var(--muted);
+      "
+    >
+        GIS HAZARD INTELLIGENCE
+    </span>
+</div>
+
+</div>
+
+
+<nav>
+
+<div class="pravah-translate-wrap">
+  <button id="pravahTranslateBtn" type="button" onclick="pravahToggleTranslate()">
+    <span class="pravah-globe">&#127760;</span><span class="pravah-label">Translate</span>
+  </button>
+  <div id="pravahTranslateWidget"></div>
+</div>
+
+<button
+    id="togglePanel"
+    style="
+        border:1px solid var(--line);
+        background:var(--panel);
+        color:var(--muted);
+        padding:8px 11px;
+        border-radius:7px;
+    "
+>
+    Layers
+</button>
+
+<a href="/">
+    Landing
+</a>
+
+<a href="/dashboard.html">
+    2D Dashboard
+</a>
+
+<a href="/dashboard-3d.html">
+    3D Terrain
+</a>
+
+</nav>
+
+</header>
+
+
+
+<div class="layout">
+
+
+<!-- SIDEBAR -->
+
+<aside id="panel">
+
+<h2>
+    GIS Command Center
+</h2>
+
+<div class="subtitle">
+    Spatial landslide-risk analysis using the existing Pravah backend.
+</div>
+
+
+<!-- BASE MAP -->
+
+<div class="section">
+
+<div class="label">
+    Base Map
+</div>
+
+<select id="baseLayer">
+
+<option value="street">
+    Detailed street map (OpenStreetMap)
+</option>
+
+<option value="satellite">
+    Satellite imagery
+</option>
+
+<option value="topo">
+    Topographic map
+</option>
+
+</select>
+
+</div>
+
+
+<!-- DISTRICT -->
+
+<div class="section">
+
+<div class="label">
+    District
+</div>
+
+<select id="district">
+
+<option value="all">
+    Whole North East Region
+</option>
+
+</select>
+
+</div>
+
+
+<!-- LAYERS -->
+
+<div class="section">
+
+<div class="label">
+    GIS Layers
+</div>
+
+
+<label class="layer">
+
+<span>
+    Landslide risk
+</span>
+
+<input
+    id="riskLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+
+<label class="layer">
+
+<span>
+    District locations
+</span>
+
+<input
+    id="districtLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+
+<label class="layer">
+
+<span>
+    Field reports
+</span>
+
+<input
+    id="reportLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+
+<label class="layer">
+
+<span>
+    Earthquakes
+</span>
+
+<input
+    id="quakeLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+<label class="layer">
+
+<span>
+    Roads
+</span>
+
+<input
+    id="roadLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+<label class="layer">
+
+<span>
+    Villages
+</span>
+
+<input
+    id="villageLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+<label class="layer">
+
+<span>
+    Infrastructure
+</span>
+
+<input
+    id="infrastructureLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+<label class="layer">
+
+<span>
+    Soil sensors
+</span>
+
+<input
+    id="sensorLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+<label class="layer">
+
+<span>
+    Road disruptions
+</span>
+
+<input
+    id="roadStatusLayer"
+    type="checkbox"
+    checked
+>
+
+</label>
+
+<label class="layer">
+
+<span>
+    Historical landslides
+</span>
+
+<input
+    id="historicalLayer"
+    type="checkbox"
+>
+
+</label>
+
+</div>
+
+
+<!-- LEGEND -->
+
+<div class="section">
+
+<div class="label">
+    Risk Legend
+</div>
+
+
+<div style="font-size:.74rem;color:var(--muted);line-height:1.8">
+
+<div>
+
+<span
+    style="
+        display:inline-block;
+        width:10px;
+        height:10px;
+        border-radius:50%;
+        background:#10b981;
+        margin-right:7px;
+    "
+></span>
+
+Safe &lt; 40%
+
+</div>
+
+
+<div>
+
+<span
+    style="
+        display:inline-block;
+        width:10px;
+        height:10px;
+        border-radius:50%;
+        background:#f59e0b;
+        margin-right:7px;
+    "
+></span>
+
+Elevated 40–69%
+
+</div>
+
+
+<div>
+
+<span
+    style="
+        display:inline-block;
+        width:10px;
+        height:10px;
+        border-radius:50%;
+        background:#ef4444;
+        margin-right:7px;
+    "
+></span>
+
+High ≥ 70%
+
+</div>
+
+
+<div>
+
+<span
+    style="
+        display:inline-block;
+        width:10px;
+        height:10px;
+        border-radius:50%;
+        background:#8b5cf6;
+        margin-right:7px;
+    "
+></span>
+
+Historical landslide
+
+</div>
+
+</div>
+
+</div>
+
+
+<!-- LOCATION -->
+
+<div class="section">
+
+<div class="label">
+    Location Analysis
+</div>
+
+<div
+    class="details"
+    id="details"
+>
+
+Click anywhere on the map.
+
+</div>
+
+</div>
+
+
+<!-- STATUS -->
+
+<div class="section">
+
+<div class="label">
+    Backend Status
+</div>
+
+<div
+    id="status"
+    class="details"
+>
+
+Connecting…
+
+</div>
+
+<div class="live-gis-panel" id="gisTelemetry">
+
+    <div class="live-gis-item">
+        <div class="head">
+            <span class="title">Soil sensors</span>
+            <span class="value" id="gisSensorCount">—</span>
+        </div>
+        <div class="meta" id="gisSensorMeta">
+            Waiting for live sensor readings…
+        </div>
+    </div>
+
+    <div class="live-gis-item">
+        <div class="head">
+            <span class="title">Seismic activity</span>
+            <span class="value" id="gisSeismicCount">—</span>
+        </div>
+        <div class="meta" id="gisSeismicMeta">
+            Waiting for USGS data…
+        </div>
+    </div>
+
+    <div class="live-gis-item">
+        <div class="head">
+            <span class="title">Road disruptions</span>
+            <span class="value" id="gisRoadCount">—</span>
+        </div>
+        <div class="meta" id="gisRoadMeta">
+            Waiting for field reports…
+        </div>
+    </div>
+
+</div>
+
+</div>
+
+
+</aside>
+
+
+
+<!-- MAP -->
+
+<div class="map-wrap">
+
+
+<div class="map-top">
+
+
+<div class="search">
+
+<input
+    id="searchInput"
+    placeholder="Search Gangtok, Dima Hasao, Assam..."
+>
+
+<button id="searchBtn">
+    Go
+</button>
+
+</div>
+
+
+<div class="badge">
+    NER · DETAILED GIS
+</div>
+
+
+</div>
+
+
+<div id="map"></div>
+
+
+<div class="map-bottom">
+
+<div
+    id="coord"
+    class="chip"
+>
+    —
+</div>
+
+<div
+    id="gridStatus"
+    class="chip"
+>
+    Loading hazard grid…
+</div>
+
+</div>
+
+
+</div>
+
+</div>
+
+
+
+<script>
+
+
+/* ==========================================
+   DISTRICTS
+========================================== */
+
+const DISTRICTS = [
+  { id: 'kamrup_metro', name: 'Kamrup Metropolitan', state: 'Assam', lat: 26.144, lon: 91.736 },
+  { id: 'dima_hasao', name: 'Dima Hasao', state: 'Assam', lat: 25.170, lon: 93.017 },
+  { id: 'karbi_anglong', name: 'Karbi Anglong', state: 'Assam', lat: 25.840, lon: 93.440 },
+  { id: 'cachar', name: 'Cachar', state: 'Assam', lat: 24.833, lon: 92.779 },
+  { id: 'sonitpur', name: 'Sonitpur', state: 'Assam', lat: 26.634, lon: 92.800 },
+  { id: 'east_khasi_hills', name: 'East Khasi Hills', state: 'Meghalaya', lat: 25.578, lon: 91.893 },
+  { id: 'west_khasi_hills', name: 'West Khasi Hills', state: 'Meghalaya', lat: 25.517, lon: 91.267 },
+  { id: 'ri_bhoi', name: 'Ri Bhoi', state: 'Meghalaya', lat: 25.900, lon: 91.883 },
+  { id: 'west_garo_hills', name: 'West Garo Hills', state: 'Meghalaya', lat: 25.514, lon: 90.220 },
+  { id: 'east_jaintia_hills', name: 'East Jaintia Hills', state: 'Meghalaya', lat: 25.350, lon: 92.350 },
+  { id: 'papum_pare', name: 'Papum Pare', state: 'Arunachal Pradesh', lat: 27.100, lon: 93.620 },
+  { id: 'west_kameng', name: 'West Kameng', state: 'Arunachal Pradesh', lat: 27.264, lon: 92.405 },
+  { id: 'upper_subansiri', name: 'Upper Subansiri', state: 'Arunachal Pradesh', lat: 27.983, lon: 94.050 },
+  { id: 'lower_dibang_valley', name: 'Lower Dibang Valley', state: 'Arunachal Pradesh', lat: 28.140, lon: 95.840 },
+  { id: 'tawang', name: 'Tawang', state: 'Arunachal Pradesh', lat: 27.586, lon: 91.868 },
+  { id: 'kohima', name: 'Kohima', state: 'Nagaland', lat: 25.674, lon: 94.108 },
+  { id: 'dimapur', name: 'Dimapur', state: 'Nagaland', lat: 25.908, lon: 93.727 },
+  { id: 'mokokchung', name: 'Mokokchung', state: 'Nagaland', lat: 26.325, lon: 94.514 },
+  { id: 'phek', name: 'Phek', state: 'Nagaland', lat: 25.667, lon: 94.467 },
+  { id: 'imphal_west', name: 'Imphal West', state: 'Manipur', lat: 24.817, lon: 93.937 },
+  { id: 'churachandpur', name: 'Churachandpur', state: 'Manipur', lat: 24.333, lon: 93.683 },
+  { id: 'ukhrul', name: 'Ukhrul', state: 'Manipur', lat: 25.100, lon: 94.367 },
+  { id: 'senapati', name: 'Senapati', state: 'Manipur', lat: 25.267, lon: 94.017 },
+  { id: 'aizawl', name: 'Aizawl', state: 'Mizoram', lat: 23.727, lon: 92.717 },
+  { id: 'lunglei', name: 'Lunglei', state: 'Mizoram', lat: 22.883, lon: 92.733 },
+  { id: 'champhai', name: 'Champhai', state: 'Mizoram', lat: 23.470, lon: 93.330 },
+  { id: 'kolasib', name: 'Kolasib', state: 'Mizoram', lat: 24.223, lon: 92.676 },
+  { id: 'west_tripura', name: 'West Tripura', state: 'Tripura', lat: 23.836, lon: 91.279 },
+  { id: 'dhalai', name: 'Dhalai', state: 'Tripura', lat: 23.933, lon: 91.850 },
+  { id: 'gomati', name: 'Gomati', state: 'Tripura', lat: 23.533, lon: 91.483 },
+  { id: 'east_sikkim', name: 'East Sikkim', state: 'Sikkim', lat: 27.330, lon: 88.610 },
+  { id: 'north_sikkim', name: 'North Sikkim', state: 'Sikkim', lat: 27.517, lon: 88.533 },
+  { id: 'south_sikkim', name: 'South Sikkim', state: 'Sikkim', lat: 27.167, lon: 88.367 },
+  { id: 'west_sikkim', name: 'West Sikkim', state: 'Sikkim', lat: 27.283, lon: 88.267 },
+];
+
+
+let map;
+
+let riskGrid = [];
+
+
+
+/* ==========================================
+   RISK COLOR
+========================================== */
+
+function riskColor(risk){
+
+    if(risk >= 70){
+
+        return "#ef4444";
+
+    }
+
+    if(risk >= 40){
+
+        return "#f59e0b";
+
+    }
+
+    return "#10b981";
+
+}
+
+
+
+/* ==========================================
+   MAP INITIALIZATION
+========================================== */
+
+
+/* ==========================================
+   OSM ROADS / VILLAGES / INFRASTRUCTURE
+========================================== */
+
+async function loadInfrastructureData() {
+
+    const bbox = "22,88,29.5,97.5";
+
+    const query = `
+        [out:json][timeout:60];
+
+        (
+            way["highway"~"motorway|trunk|primary|secondary|tertiary"](${bbox});
+            node["place"~"village|town"](${bbox});
+            node["amenity"~"hospital|school"](${bbox});
+            way["bridge"="yes"](${bbox});
+        );
+
+        out geom;
+    `;
+
+    const endpoints = [
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter"
+    ];
+
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+
+        try {
+
+            const response = await fetch(
+                endpoint,
+                {
+                    method:"POST",
+                    headers:{
+                        "Content-Type":
+                            "application/x-www-form-urlencoded;charset=UTF-8"
+                    },
+                    body:
+                        "data=" +
+                        encodeURIComponent(query)
+                }
+            );
+
+            if(!response.ok){
+                throw new Error(
+                    `Overpass ${response.status}`
+                );
+            }
+
+            return await response.json();
+
+        } catch(error){
+
+            lastError = error;
+
+        }
+
+    }
+
+    throw lastError || new Error(
+        "OpenStreetMap data unavailable"
+    );
+}
+
+
+async function loadInfrastructureLayers(){
+
+    try {
+
+        const osm = await loadInfrastructureData();
+
+        const roads = [];
+        const villages = [];
+        const infrastructure = [];
+
+        for (const element of (osm.elements || [])) {
+
+            const tags = element.tags || {};
+
+            /* Roads */
+            if (
+                element.type === "way" &&
+                tags.highway &&
+                Array.isArray(element.geometry) &&
+                element.geometry.length >= 2
+            ) {
+                roads.push({
+                    type: "Feature",
+                    geometry: {
+                        type: "LineString",
+                        coordinates: element.geometry.map(
+                            point => [Number(point.lon), Number(point.lat)]
+                        )
+                    },
+                    properties: {
+                        name: tags.name || "Unnamed road",
+                        highway: tags.highway,
+                        ref: tags.ref || ""
+                    }
+                });
+            }
+
+            /* Villages / towns */
+            if (
+                element.type === "node" &&
+                (tags.place === "village" || tags.place === "town")
+            ) {
+                villages.push({
+                    type: "Feature",
+                    geometry: {
+                        type: "Point",
+                        coordinates: [Number(element.lon), Number(element.lat)]
+                    },
+                    properties: {
+                        name: tags.name || "Unnamed settlement",
+                        place: tags.place
+                    }
+                });
+            }
+
+            /* Critical infrastructure */
+            if (
+                tags.amenity === "hospital" ||
+                tags.amenity === "school" ||
+                tags.man_made === "bridge"
+            ) {
+                const center = geometryCenter(element);
+                if (!center) continue;
+
+                let type = "Infrastructure";
+                if (tags.amenity === "hospital") type = "Hospital";
+                else if (tags.amenity === "school") type = "School";
+                else if (tags.man_made === "bridge") type = "Bridge";
+
+                infrastructure.push({
+                    type: "Feature",
+                    geometry: {
+                        type: "Point",
+                        coordinates: [center.lon, center.lat]
+                    },
+                    properties: {
+                        name: tags.name || type,
+                        type: type
+                    }
+                });
+            }
+        }
+
+        map.addSource("roads", {
+            type: "geojson",
+            data: {
+                type: "FeatureCollection",
+                features: roads
+            }
+        });
+
+        map.addLayer({
+            id: "roads-casing",
+            type: "line",
+            source: "roads",
+            paint: {
+                "line-color": "#0b3d23",
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 2.0,
+                    7, 3.2,
+                    10, 5.0,
+                    13, 8.0
+                ],
+                "line-opacity": 0.95
+            }
+        });
+
+        map.addLayer({
+            id: "roads",
+            type: "line",
+            source: "roads",
+            paint: {
+                "line-color": [
+                    "match",
+                    ["get", "highway"],
+                    "motorway", "#ff3b30",
+                    "trunk", "#ff9500",
+                    "primary", "#ffd60a",
+                    "secondary", "#ffffff",
+                    "tertiary", "#d9f99d",
+                    "#ffffff"
+                ],
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 1.0,
+                    7, 1.8,
+                    10, 3.2,
+                    13, 5.2
+                ],
+                "line-opacity": 1
+            }
+        });
+
+        map.addSource("villages", {
+            type: "geojson",
+            data: {
+                type: "FeatureCollection",
+                features: villages
+            }
+        });
+
+        map.addLayer({
+            id: "villages",
+            type: "circle",
+            source: "villages",
+            paint: {
+                "circle-radius": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    5, 2.5,
+                    9, 4,
+                    12, 6
+                ],
+                "circle-color": "#facc15",
+                "circle-stroke-width": 1,
+                "circle-stroke-color": "#111827",
+                "circle-opacity": 0.9
+            }
+        });
+
+        map.addSource("infrastructure", {
+            type: "geojson",
+            data: {
+                type: "FeatureCollection",
+                features: infrastructure
+            }
+        });
+
+        map.addLayer({
+            id: "infrastructure",
+            type: "circle",
+            source: "infrastructure",
+            paint: {
+                "circle-radius": 5,
+                "circle-color": [
+                    "match",
+                    ["get", "type"],
+                    "Hospital", "#ef4444",
+                    "School", "#a855f7",
+                    "Bridge", "#38bdf8",
+                    "#ffffff"
+                ],
+                "circle-stroke-width": 1,
+                "circle-stroke-color":"#ffffff"
+            }
+        });
+
+        map.on("click", "roads", function(e){
+            const p = e.features?.[0]?.properties || {};
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(`
+                    <b>Road</b><br>
+                    ${p.name || "Unnamed road"}<br>
+                    Type: ${p.highway || "Unknown"}
+                    ${p.ref ? `<br>Ref: ${p.ref}` : ""}
+                `)
+                .addTo(map);
+        });
+
+        map.on("click", "villages", function(e){
+            const p = e.features?.[0]?.properties || {};
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(`
+                    <b>Village / Settlement</b><br>
+                    ${p.name || "Unnamed settlement"}
+                `)
+                .addTo(map);
+        });
+
+        map.on("click", "infrastructure", function(e){
+            const p = e.features?.[0]?.properties || {};
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(`
+                    <b>${p.type || "Infrastructure"}</b><br>
+                    ${p.name || "Unnamed facility"}
+                `)
+                .addTo(map);
+        });
+
+        map.on("mouseenter", "roads", () => {
+            map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "roads", () => {
+            map.getCanvas().style.cursor = "";
+        });
+
+        map.on("mouseenter", "villages", () => {
+            map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "villages", () => {
+            map.getCanvas().style.cursor = "";
+        });
+
+        map.on("mouseenter", "infrastructure", () => {
+            map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "infrastructure", () => {
+            map.getCanvas().style.cursor = "";
+        });
+
+        return {
+            roads: roads.length,
+            villages: villages.length,
+            infrastructure: infrastructure.length
+        };
+
+    } catch (error) {
+
+        console.error("Infrastructure GIS layer error:", error);
+
+        return {
+            roads: 0,
+            villages: 0,
+            infrastructure: 0
+        };
+    }
+}
+
+async function setGISStatus(message){
+
+    const status =
+        document.getElementById("status");
+
+    if(status && message){
+        status.innerHTML = message;
+    }
+
+}
+
+
+async function loadGISBackendStatus(){
+
+    const status =
+        document.getElementById("status");
+
+    try{
+
+        const response =
+            await fetch(
+                "/api/health",
+                {
+                    cache:"no-store"
+                }
+            );
+
+        if(!response.ok){
+            throw new Error(
+                `Health HTTP ${response.status}`
+            );
+        }
+
+        const data =
+            await response.json();
+
+        status.innerHTML =
+            `<b style="color:var(--green2)">BACKEND CONNECTED</b><br>
+             Database: ${data.database || "unknown"} ·
+             Model: ${data.model || "ready"} ·
+             Seismic: ${data.seismic_feed || "live"}`;
+
+        return data;
+
+    }catch(error){
+
+        console.error(
+            "GIS backend health check failed:",
+            error
+        );
+
+        status.innerHTML =
+            `<b style="color:var(--red)">BACKEND UNAVAILABLE</b><br>
+             Could not reach <code>/api/health</code>`;
+
+        return null;
+
+    }
+
+}
+
+
+function initMap(){
+
+    map = new maplibregl.Map({
+
+        container:"map",
+
+        style:{
+
+            version:8,
+
+            sources:{
+
+                street:{
+                    type:"raster",
+                    tiles:[
+                        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    ],
+                    tileSize:256,
+                    attribution:"© OpenStreetMap contributors"
+                },
+
+                satellite:{
+                    type:"raster",
+                    tiles:[
+                        "/api/tile/satellite/{z}/{x}/{y}"
+                    ],
+                    tileSize:256
+                },
+
+                topo:{
+                    type:"raster",
+                    tiles:[
+                        "/api/tile/topo/{z}/{x}/{y}"
+                    ],
+                    tileSize:256
+                }
+
+            },
+
+            layers:[
+
+                {
+                    id:"topo",
+                    type:"raster",
+                    source:"topo",
+                    layout:{
+                        visibility:"none"
+                    }
+                },
+
+                {
+                    id:"satellite",
+                    type:"raster",
+                    source:"satellite",
+                    layout:{
+                        visibility:"none"
+                    }
+                },
+
+                {
+                    id:"street",
+                    type:"raster",
+                    source:"street",
+                    layout:{
+                        visibility:"visible"
+                    }
+                }
+
+            ]
+
+        },
+
+        center:[
+            92.9376,
+            26.2006
+        ],
+
+        zoom:7,
+
+        attributionControl:true
+
+    });
+
+
+    map.addControl(
+        new maplibregl.NavigationControl(),
+        "bottom-right"
+    );
+
+
+    map.on("mousemove",function(e){
+
+        document.getElementById("coord").textContent =
+            `${e.lngLat.lat.toFixed(3)}°N · ${e.lngLat.lng.toFixed(3)}°E`;
+
+    });
+
+
+    map.on("click",function(e){
+
+        analysePoint(
+            e.lngLat.lat,
+            e.lngLat.lng
+        );
+
+    });
+
+
+    map.on("load",async function(){
+
+        /* Do not let one slow external feed block the whole GIS UI. */
+        setGISStatus("Map connected · loading live services…");
+
+        const results =
+            await Promise.allSettled([
+
+                buildRiskGrid(),
+
+                loadDistricts(),
+
+                loadReports(),
+
+                loadEarthquakes(),
+
+                loadInfrastructureLayers(),
+
+                loadLiveGISLayers()
+
+            ]);
+
+        const assetResult = results[4];
+
+        const assetCounts =
+            assetResult &&
+            assetResult.status === "fulfilled" &&
+            assetResult.value
+                ? assetResult.value
+                : {
+                    roads:0,
+                    villages:0,
+                    infrastructure:0
+                };
+
+        const failed =
+            results.filter(
+                result =>
+                    result.status === "rejected"
+            ).length;
+
+        document.getElementById("status").innerHTML =
+            `<b style="color:var(--green2)">CONNECTED</b><br>
+             Backend: healthy ·
+             Roads: ${Number(assetCounts.roads || 0).toLocaleString()} ·
+             Villages: ${Number(assetCounts.villages || 0).toLocaleString()} ·
+             Infrastructure: ${Number(assetCounts.infrastructure || 0).toLocaleString()}
+             ${failed ? `<br><span style="color:var(--orange)">${failed} optional feed(s) unavailable</span>` : ""}`;
+
+        if(riskGrid.length){
+
+            document.getElementById("gridStatus").textContent =
+                `AI Risk Grid · ${riskGrid.length} cells · live GIS`;
+
+        }else{
+
+            document.getElementById("gridStatus").textContent =
+                "LIVE · map connected · waiting for hazard grid";
+
+        }
+
+        startGISLiveRefresh();
+
+    });
+
+}
+
+
+
+/* ==========================================
+   HAZARD GRID
+========================================== */
+
+async function fetchDistrictWeatherForGIS(){
+
+    const requests =
+        DISTRICTS.map(
+            async function(district){
+
+                try{
+
+                    const controller =
+                        new AbortController();
+
+                    const timeout =
+                        setTimeout(
+                            () => controller.abort(),
+                            10000
+                        );
+
+                    const response =
+                        await fetch(
+                            `/api/weather?lat=${district.lat}&lon=${district.lon}`,
+                            { signal: controller.signal }
+                        );
+
+                    clearTimeout(timeout);
+
+                    if(!response.ok){
+                        throw new Error(
+                            `Weather HTTP ${response.status}`
+                        );
+                    }
+
+                    const weather =
+                        await response.json();
+
+                    return {
+                        ...district,
+                        rain:
+                            Number(
+                                weather.rain_72h_mm ?? 0
+                            ),
+                        soil:
+                            Number(
+                                weather.soil_moisture_pct ?? 0
+                            )
+                    };
+
+                }catch(error){
+
+                    console.warn(
+                        "GIS weather unavailable:",
+                        district.name,
+                        error
+                    );
+
+                    return {
+                        ...district,
+                        rain:0,
+                        soil:0
+                    };
+
+                }
+
+            }
+        );
+
+    return Promise.all(requests);
+
+}
+
+function gisIdwInterpolate(
+    lat,
+    lon,
+    stations,
+    key
+){
+
+    let weightedSum = 0;
+    let weightSum = 0;
+
+    for(
+        const station of stations
+    ){
+
+        const distance =
+            Math.max(
+                0.05,
+                haversineKm(
+                    lat,
+                    lon,
+                    station.lat,
+                    station.lon
+                )
+            );
+
+        const weight =
+            1 /
+            (
+                distance *
+                distance
+            );
+
+        weightedSum +=
+            weight *
+            Number(
+                station[key] ?? 0
+            );
+
+        weightSum +=
+            weight;
+
+    }
+
+    return weightSum
+        ? weightedSum / weightSum
+        : 0;
+
+}
+
+
+async function fetchGISTerrainSlope(
+    lat,
+    lon,
+    fallback
+){
+
+    if(
+        map &&
+        map.queryTerrainElevation
+    ){
+
+        try{
+
+            const d = 0.02;
+
+            const left =
+                map.queryTerrainElevation({
+                    lng:lon - d,
+                    lat
+                });
+
+            const right =
+                map.queryTerrainElevation({
+                    lng:lon + d,
+                    lat
+                });
+
+            const up =
+                map.queryTerrainElevation({
+                    lng:lon,
+                    lat:lat + d
+                });
+
+            const down =
+                map.queryTerrainElevation({
+                    lng:lon,
+                    lat:lat - d
+                });
+
+            if(
+                [
+                    left,
+                    right,
+                    up,
+                    down
+                ].every(
+                    value =>
+                        value != null
+                )
+            ){
+
+                const dx =
+                    haversineKm(
+                        lat,
+                        lon - d,
+                        lat,
+                        lon + d
+                    ) * 1000;
+
+                const dy =
+                    haversineKm(
+                        lat - d,
+                        lon,
+                        lat + d,
+                        lon
+                    ) * 1000;
+
+                const dzdx =
+                    (
+                        right -
+                        left
+                    ) /
+                    Math.max(
+                        dx,
+                        1
+                    );
+
+                const dzdy =
+                    (
+                        up -
+                        down
+                    ) /
+                    Math.max(
+                        dy,
+                        1
+                    );
+
+                const slope =
+                    Math.atan(
+                        Math.hypot(
+                            dzdx,
+                            dzdy
+                        )
+                    ) *
+                    180 /
+                    Math.PI;
+
+                return Math.max(
+                    2,
+                    Math.min(
+                        60,
+                        slope
+                    )
+                );
+
+            }
+
+        }catch(error){
+
+            console.warn(
+                "GIS terrain slope unavailable",
+                error
+            );
+
+        }
+
+    }
+
+    return fallback;
+
+}
+
+
+async function buildRiskGrid(){
+
+    const GRID_SIZE = 13;
+    const points = [];
+
+    const stations =
+        await fetchDistrictWeatherForGIS();
+
+
+    const seismicResponse =
+        await fetch(
+            "/api/seismic?lat=25.5&lon=92.5&radius_km=700"
+        );
+
+    const seismicData =
+        seismicResponse.ok
+            ? await seismicResponse.json()
+            : {
+                events:[],
+                seismic_influence:0
+            };
+
+
+    for(
+        let row = 0;
+        row < GRID_SIZE;
+        row++
+    ){
+
+        for(
+            let col = 0;
+            col < GRID_SIZE;
+            col++
+        ){
+
+            const lat =
+                22 +
+                (
+                    row /
+                    (
+                        GRID_SIZE -
+                        1
+                    )
+                ) *
+                7.5;
+
+            const lon =
+                88 +
+                (
+                    col /
+                    (
+                        GRID_SIZE -
+                        1
+                    )
+                ) *
+                9.5;
+
+            const nearestDistrict =
+                DISTRICTS.reduce(
+                    (
+                        nearest,
+                        district
+                    ) =>
+                        haversineKm(
+                            lat,
+                            lon,
+                            district.lat,
+                            district.lon
+                        ) <
+                        haversineKm(
+                            lat,
+                            lon,
+                            nearest.lat,
+                            nearest.lon
+                        )
+                            ? district
+                            : nearest
+                );
+
+
+            points.push({
+
+                lat:
+                    Number(
+                        lat.toFixed(4)
+                    ),
+
+                lon:
+                    Number(
+                        lon.toFixed(4)
+                    ),
+
+                rain:
+                    Number(
+                        gisIdwInterpolate(
+                            lat,
+                            lon,
+                            stations,
+                            "rain"
+                        ).toFixed(1)
+                    ),
+
+                soil:
+                    Number(
+                        gisIdwInterpolate(
+                            lat,
+                            lon,
+                            stations,
+                            "soil"
+                        ).toFixed(1)
+                    ),
+
+                slope:
+                    Number(
+                        (
+                            await fetchGISTerrainSlope(
+                                lat,
+                                lon,
+                                nearestDistrict.slope ||
+                                30
+                            )
+                        ).toFixed(1)
+                    )
+
+            });
+
+        }
+
+    }
+
+
+    /*
+     * Use seismic influence from the live USGS feed.
+     * The backend calculates the spatial/recency/magnitude
+     * influence when each point is scored.
+     */
+    points.forEach(
+        point => {
+
+            const eventInfluence =
+                calculateLocalGISSeismicInfluence(
+                    point.lat,
+                    point.lon,
+                    seismicData.events || []
+                );
+
+            point.seismic_influence =
+                eventInfluence;
+
+        }
+    );
+
+
+    try{
+
+        document.getElementById(
+            "gridStatus"
+        ).textContent =
+            "LIVE · weather + terrain + seismic";
+
+
+        const response =
+            await fetch(
+                "/api/predict/grid",
+                {
+                    method:"POST",
+
+                    headers:{
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:JSON.stringify({
+
+                        points:
+                            points.map(
+                                point => ({
+
+                                    lat:
+                                        point.lat,
+
+                                    lon:
+                                        point.lon,
+
+                                    rain_72h_mm:
+                                        point.rain,
+
+                                    soil_moisture_pct:
+                                        point.soil,
+
+                                    slope_deg:
+                                        point.slope,
+
+                                    seismic_influence:
+                                        point.seismic_influence
+
+                                })
+                            )
+
+                    })
+
+                }
+            );
+
+
+        if(!response.ok){
+
+            throw new Error(
+                `AI grid HTTP ${response.status}`
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        if(
+            !Array.isArray(
+                data.results
+            )
+        ){
+
+            throw new Error(
+                "Invalid grid response"
+            );
+
+        }
+
+
+        riskGrid =
+            data.results;
+
+
+        const features =
+            riskGrid.map(
+                function(p){
+
+                    return {
+
+                        type:"Feature",
+
+                        geometry:{
+
+                            type:"Point",
+
+                            coordinates:[
+                                p.lon,
+                                p.lat
+                            ]
+
+                        },
+
+                        properties:{
+
+                            risk:
+                                p.hazard_index ??
+                                0,
+
+                            probability:
+                                p.probability ??
+                                0,
+
+                            rain:
+                                p.rain_72h_mm ??
+                                null,
+
+                            soil:
+                                p.soil_moisture_pct ??
+                                null,
+
+                            seismic:
+                                p.seismic_influence ??
+                                0,
+
+                            sensor_id:
+                                p.soil_sensor_id ??
+                                null
+
+                        }
+
+                    };
+
+                }
+            );
+
+
+        const riskSource =
+            map.getSource(
+                "risk"
+            );
+
+
+        if(riskSource){
+
+            riskSource.setData({
+
+                type:"FeatureCollection",
+
+                features
+
+            });
+
+        }else{
+
+            map.addSource(
+                "risk",
+                {
+
+                    type:"geojson",
+
+                    data:{
+
+                        type:"FeatureCollection",
+
+                        features
+
+                    }
+
+                }
+            );
+
+
+            map.addLayer({
+
+                id:"risk",
+
+                type:"circle",
+
+                source:"risk",
+
+                paint:{
+
+                    "circle-radius":[
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        5,6,
+                        8,11,
+                        12,15
+                    ],
+
+                    "circle-color":[
+                        "step",
+                        ["get","risk"],
+
+                        "#10b981",
+
+                        40,
+                        "#f59e0b",
+
+                        70,
+                        "#ef4444"
+
+                    ],
+
+                    "circle-opacity":
+                        0.68,
+
+                    "circle-stroke-width":
+                        1,
+
+                    "circle-stroke-color":
+                        "#ffffff"
+
+                }
+
+            });
+
+
+            map.on(
+                "click",
+                "risk",
+                function(e){
+
+                    const p =
+                        e.features?.[0]?.properties;
+
+                    if(!p)
+                        return;
+
+                    new maplibregl.Popup()
+
+                        .setLngLat(
+                            e.lngLat
+                        )
+
+                        .setHTML(`
+
+                            <b>Live AI Risk</b><br><br>
+
+                            Risk:
+                            <b>
+                                ${Number(
+                                    p.risk
+                                ).toFixed(0)}%
+                            </b><br>
+
+                            Rainfall:
+                            ${Number(
+                                p.rain
+                            ).toFixed(1)} mm<br>
+
+                            Soil:
+                            ${Number(
+                                p.soil
+                            ).toFixed(1)}%<br>
+
+                            Seismic influence:
+                            ${(
+                                Number(
+                                    p.seismic
+                                ) * 100
+                            ).toFixed(1)}%
+
+                            ${
+                                p.sensor_id
+                                    ? `<br>Sensor: ${p.sensor_id}`
+                                    : ""
+                            }
+
+                        `)
+
+                        .addTo(map);
+
+                }
+            );
+
+        }
+
+
+        document.getElementById(
+            "gridStatus"
+        ).textContent =
+            `LIVE · AI risk · ${
+                riskGrid.length
+            } cells · ${
+                new Date().toLocaleTimeString()
+            }`;
+
+
+    }catch(error){
+
+        console.error(
+            "Live GIS grid error:",
+            error
+        );
+
+        document.getElementById(
+            "gridStatus"
+        ).textContent =
+            "LIVE DATA ERROR";
+
+    }
+
+}
+
+
+function calculateLocalGISSeismicInfluence(
+    lat,
+    lon,
+    events
+){
+
+    let influence = 0;
+
+    events.forEach(
+        event => {
+
+            const magnitude =
+                Number(
+                    event.magnitude ??
+                    event.mag ??
+                    0
+                );
+
+            const eventLat =
+                Number(
+                    event.lat ??
+                    event.geometry?.coordinates?.[1]
+                );
+
+            const eventLon =
+                Number(
+                    event.lon ??
+                    event.geometry?.coordinates?.[0]
+                );
+
+            if(
+                !Number.isFinite(
+                    eventLat
+                ) ||
+                !Number.isFinite(
+                    eventLon
+                )
+            ){
+                return;
+            }
+
+            const distance =
+                haversineKm(
+                    lat,
+                    lon,
+                    eventLat,
+                    eventLon
+                );
+
+            let ageDays = 7;
+
+            if(event.time){
+
+                const eventTime =
+                    new Date(
+                        event.time
+                    );
+
+                if(
+                    !Number.isNaN(
+                        eventTime.getTime()
+                    )
+                ){
+
+                    ageDays =
+                        Math.max(
+                            0,
+                            (
+                                Date.now() -
+                                eventTime.getTime()
+                            ) /
+                            86400000
+                        );
+
+                }
+
+            }
+
+            const magnitudeFactor =
+                Math.max(
+                    0,
+                    magnitude -
+                    2.5
+                );
+
+            const distanceFactor =
+                Math.exp(
+                    -distance /
+                    150
+                );
+
+            const recencyFactor =
+                Math.exp(
+                    -ageDays /
+                    3
+                );
+
+            influence +=
+                (
+                    magnitudeFactor *
+                    distanceFactor *
+                    recencyFactor
+                ) /
+                4;
+
+        }
+    );
+
+    return Math.max(
+        0,
+        Math.min(
+            1,
+            influence
+        )
+    );
+
+}
+
+
+/* ==========================================
+   DISTRICT LAYERS
+========================================== */
+
+async function loadDistricts(){
+
+    const features =
+        DISTRICTS.map(function(d){
+
+            return {
+
+                type:"Feature",
+
+                geometry:{
+                    type:"Point",
+
+                    coordinates:[
+                        d.lon,
+                        d.lat
+                    ]
+
+                },
+
+                properties:d
+
+            };
+
+        });
+
+
+    map.addSource(
+
+        "districts",
+
+        {
+            type:"geojson",
+
+            data:{
+                type:"FeatureCollection",
+
+                features:features
+
+            }
+
+        }
+
+    );
+
+
+    map.addLayer({
+
+        id:"districts",
+
+        type:"circle",
+
+        source:"districts",
+
+        paint:{
+
+            "circle-radius":8,
+
+            "circle-color":"#22c55e",
+
+            "circle-stroke-width":2,
+
+            "circle-stroke-color":"#ffffff"
+
+        }
+
+    });
+
+
+    const select =
+        document.getElementById(
+            "district"
+        );
+
+
+    DISTRICTS.forEach(function(d){
+
+        const option =
+            document.createElement(
+                "option"
+            );
+
+        option.value = d.id;
+
+        option.textContent =
+            d.name;
+
+        select.appendChild(option);
+
+    });
+
+
+    map.on(
+        "click",
+        "districts",
+        function(e){
+
+            const d =
+                e.features[0].properties;
+
+
+            analysePoint(
+                Number(d.lat),
+                Number(d.lon)
+            );
+
+
+            new maplibregl.Popup()
+
+                .setLngLat(e.lngLat)
+
+                .setHTML(
+
+                    `<b>${d.name}</b><br>
+                     ${d.state}`
+
+                )
+
+                .addTo(map);
+
+        }
+    );
+
+}
+
+
+
+/* ==========================================
+   FIELD REPORTS
+========================================== */
+
+async function loadReports(){
+
+    try{
+
+        const response =
+            await fetch(
+                "/api/reports"
+            );
+
+
+        const reports =
+            await response.json();
+
+
+        const features =
+            reports
+                .filter(
+                    r =>
+                        Number.isFinite(
+                            Number(r.lat)
+                        ) &&
+                        Number.isFinite(
+                            Number(r.lon)
+                        )
+                )
+                .map(function(r){
+
+                    return {
+
+                        type:"Feature",
+
+                        geometry:{
+
+                            type:"Point",
+
+                            coordinates:[
+                                Number(r.lon),
+                                Number(r.lat)
+                            ]
+
+                        },
+
+                        properties:r
+
+                    };
+
+                });
+
+
+        map.addSource(
+
+            "reports",
+
+            {
+                type:"geojson",
+
+                data:{
+                    type:"FeatureCollection",
+
+                    features:features
+
+                }
+
+            }
+
+        );
+
+
+        map.addLayer({
+
+            id:"reports",
+
+            type:"circle",
+
+            source:"reports",
+
+            paint:{
+
+                "circle-radius":6,
+
+                "circle-color":"#a855f7",
+
+                "circle-stroke-width":1,
+
+                "circle-stroke-color":"#ffffff"
+
+            }
+
+        });
+
+
+    }catch(error){
+
+        console.log(
+            "Reports unavailable",
+            error
+        );
+
+    }
+
+}
+
+
+
+/* ==========================================
+   EARTHQUAKES
+========================================== */
+
+async function loadEarthquakes(){
+
+    try{
+
+        const response =
+            await fetch(
+
+                "https://earthquake.usgs.gov/" +
+                "fdsnws/event/1/query?" +
+                "format=geojson" +
+                "&minlatitude=22" +
+                "&maxlatitude=29.5" +
+                "&minlongitude=88" +
+                "&maxlongitude=97.5" +
+                "&limit=100" +
+                "&orderby=time"
+
+            );
+
+
+        const data =
+            await response.json();
+
+
+        const features =
+            (data.features || [])
+            .filter(
+                f =>
+                    f.geometry &&
+                    f.geometry.coordinates
+            );
+
+
+        const geojson = {
+            type:"FeatureCollection",
+            features:features
+        };
+
+        if(map.getSource("earthquakes")){
+
+            map.getSource("earthquakes").setData(
+                geojson
+            );
+
+        }else{
+
+            map.addSource(
+                "earthquakes",
+                {
+                    type:"geojson",
+                    data:geojson
+                }
+            );
+
+            map.addLayer({
+                id:"earthquakes",
+                type:"circle",
+                source:"earthquakes",
+                paint:{
+                    "circle-radius":5,
+                    "circle-color":"#fb7185",
+                    "circle-stroke-width":1,
+                    "circle-stroke-color":"#ffffff"
+                }
+            });
+
+        }
+
+
+    }catch(error){
+
+        console.log(
+            "Earthquake feed unavailable",
+            error
+        );
+
+    }
+
+}
+
+
+
+
+/* ==========================================
+   HISTORICAL LANDSLIDES LAYER
+   Mirrors the paginated loader on the main
+   dashboard: /api/historical-landslides
+   returns {events, source, has_more,
+   next_offset}, so we keep paging until
+   has_more is false.
+========================================== */
+
+let historicalLandslideOffset = 0;
+let historicalLandslideFeatures = [];
+let historicalLandslideLoading = false;
+let historicalLandslideLoaded = false;
+
+async function loadHistoricalLandslides(){
+
+    if(historicalLandslideLoading)
+        return;
+
+    historicalLandslideLoading = true;
+    historicalLandslideOffset = 0;
+    historicalLandslideFeatures = [];
+
+    try{
+
+        let hasMore = true;
+
+        while(hasMore){
+
+            const response =
+                await fetch(
+                    `/api/historical-landslides?offset=${historicalLandslideOffset}&limit=300`
+                );
+
+            if(!response.ok)
+                throw new Error(`Historical HTTP ${response.status}`);
+
+            const data = await response.json();
+
+            const rows =
+                Array.isArray(data)
+                    ? data
+                    : (Array.isArray(data.events) ? data.events : []);
+
+            for(const row of rows){
+
+                if(row.lat == null || row.lon == null)
+                    continue;
+
+                historicalLandslideFeatures.push({
+                    type:"Feature",
+                    geometry:{
+                        type:"Point",
+                        coordinates:[row.lon, row.lat]
+                    },
+                    properties:{
+                        locality: row.locality || row.district || "Historical landslide",
+                        district: row.district || "",
+                        event_date: row.event_date || row.date || "Date unknown",
+                        severity: row.severity || "Unknown",
+                        trigger: row.trigger || "Not recorded",
+                        source_org: row.source_org || data.source || "Historical dataset"
+                    }
+                });
+
+            }
+
+            hasMore = Boolean(data.has_more);
+
+            historicalLandslideOffset =
+                Number.isFinite(Number(data.next_offset))
+                    ? Number(data.next_offset)
+                    : historicalLandslideOffset + rows.length;
+
+            if(!rows.length || !hasMore)
+                break;
+
+        }
+
+        const geojson = {
+            type:"FeatureCollection",
+            features: historicalLandslideFeatures
+        };
+
+        if(map.getSource("historical-landslides")){
+
+            map.getSource("historical-landslides").setData(geojson);
+
+        }else{
+
+            map.addSource(
+                "historical-landslides",
+                {
+                    type:"geojson",
+                    data: geojson
+                }
+            );
+
+            map.addLayer({
+
+                id:"historical-landslides",
+
+                type:"circle",
+
+                source:"historical-landslides",
+
+                layout:{
+                    visibility:"none"
+                },
+
+                paint:{
+
+                    "circle-radius":5,
+
+                    "circle-color":"#8b5cf6",
+
+                    "circle-opacity":0.75,
+
+                    "circle-stroke-width":1,
+
+                    "circle-stroke-color":"#ffffff"
+
+                }
+
+            });
+
+            map.on(
+                "click",
+                "historical-landslides",
+                function(e){
+
+                    const p = e.features?.[0]?.properties;
+
+                    if(!p)
+                        return;
+
+                    new maplibregl.Popup()
+
+                        .setLngLat(e.lngLat)
+
+                        .setHTML(`
+                            <b>${p.locality}</b><br>
+                            ${p.district ? p.district + "<br>" : ""}
+                            Date: ${p.event_date}<br>
+                            Severity: ${p.severity}<br>
+                            Trigger: ${p.trigger}<br>
+                            <span style="color:var(--muted);font-size:.8em">
+                                Source: ${p.source_org}
+                            </span>
+                        `)
+
+                        .addTo(map);
+
+                }
+            );
+
+            map.on(
+                "mouseenter",
+                "historical-landslides",
+                () => { map.getCanvas().style.cursor = "pointer"; }
+            );
+
+            map.on(
+                "mouseleave",
+                "historical-landslides",
+                () => { map.getCanvas().style.cursor = ""; }
+            );
+
+        }
+
+        historicalLandslideLoaded = true;
+
+    }catch(error){
+
+        console.log(
+            "Historical landslide data unavailable",
+            error
+        );
+
+    }finally{
+
+        historicalLandslideLoading = false;
+
+    }
+
+}
+
+
+
+
+/* ==========================================
+   LIVE SENSOR / ROAD STATUS LAYERS
+========================================== */
+
+async function loadLiveGISLayers(){
+
+    await loadSoilSensorLayer();
+
+    await loadRoadStatusLayer();
+
+    await loadGISSeismicSummary();
+
+}
+
+
+async function loadSoilSensorLayer(){
+
+    try{
+
+        const response =
+            await fetch(
+                "/api/sensors/latest"
+            );
+
+        if(!response.ok){
+            throw new Error(
+                `Sensor HTTP ${response.status}`
+            );
+        }
+
+        const data =
+            await response.json();
+
+        const liveReadings =
+            (data.readings || [])
+                .filter(
+                    reading =>
+                        reading.is_live
+                );
+
+        const soilReadings =
+            liveReadings.filter(
+                reading => {
+
+                    const type =
+                        String(
+                            reading.sensor_type ||
+                            ""
+                        ).toLowerCase();
+
+                    return (
+                        type.includes(
+                            "soil"
+                        )
+                    );
+
+                }
+            );
+
+
+        document.getElementById(
+            "gisSensorCount"
+        ).textContent =
+            soilReadings.length;
+
+
+        document.getElementById(
+            "gisSensorMeta"
+        ).textContent =
+            soilReadings.length
+                ? soilReadings
+                    .map(
+                        reading =>
+                            `${reading.sensor_id}: ${
+                                Number(
+                                    reading.value
+                                ).toFixed(1)
+                            }${reading.unit || "%"}`
+                    )
+                    .slice(
+                        0,
+                        4
+                    )
+                    .join(" · ")
+                : "No live soil-moisture readings received.";
+
+
+        const features =
+            soilReadings
+                .filter(
+                    reading =>
+                        reading.lat != null &&
+                        reading.lon != null
+                )
+                .map(
+                    reading => ({
+
+                        type:"Feature",
+
+                        geometry:{
+
+                            type:"Point",
+
+                            coordinates:[
+                                Number(
+                                    reading.lon
+                                ),
+                                Number(
+                                    reading.lat
+                                )
+                            ]
+
+                        },
+
+                        properties:{
+
+                            sensor_id:
+                                reading.sensor_id,
+
+                            district:
+                                reading.district ||
+                                "Unknown",
+
+                            value:
+                                reading.value,
+
+                            unit:
+                                reading.unit ||
+                                "%",
+
+                            recorded_at:
+                                reading.recorded_at
+
+                        }
+
+                    })
+                );
+
+
+        const geojson = {
+
+            type:"FeatureCollection",
+
+            features
+
+        };
+
+
+        if(
+            map.getSource(
+                "soil-sensors"
+            )
+        ){
+
+            map.getSource(
+                "soil-sensors"
+            ).setData(
+                geojson
+            );
+
+        }else{
+
+            map.addSource(
+                "soil-sensors",
+                {
+
+                    type:"geojson",
+
+                    data:
+                        geojson
+
+                }
+            );
+
+
+            map.addLayer({
+
+                id:"soil-sensors",
+
+                type:"circle",
+
+                source:"soil-sensors",
+
+                paint:{
+
+                    "circle-radius":7,
+
+                    "circle-color":"#22c55e",
+
+                    "circle-stroke-width":2,
+
+                    "circle-stroke-color":
+                        "#eafff0"
+
+                }
+
+            });
+
+
+            map.on(
+                "click",
+                "soil-sensors",
+                function(e){
+
+                    const p =
+                        e.features?.[0]?.properties;
+
+                    if(!p)
+                        return;
+
+                    new maplibregl.Popup()
+
+                        .setLngLat(
+                            e.lngLat
+                        )
+
+                        .setHTML(`
+
+                            <b>Soil Moisture Sensor</b><br><br>
+
+                            Sensor:
+                            ${p.sensor_id}<br>
+
+                            District:
+                            ${p.district}<br>
+
+                            Moisture:
+                            <b>
+                                ${Number(
+                                    p.value
+                                ).toFixed(1)}
+                                ${p.unit}
+                            </b><br>
+
+                            Recorded:
+                            ${p.recorded_at}
+
+                        `)
+
+                        .addTo(map);
+
+                }
+            );
+
+        }
+
+
+    }catch(error){
+
+        console.warn(
+            "Soil sensor GIS layer unavailable:",
+            error
+        );
+
+        document.getElementById(
+            "gisSensorCount"
+        ).textContent =
+            "—";
+
+        document.getElementById(
+            "gisSensorMeta"
+        ).textContent =
+            "Sensor API unavailable.";
+
+    }
+
+}
+
+
+async function loadRoadStatusLayer(){
+
+    try{
+
+        const response =
+            await fetch(
+                "/api/road-status"
+            );
+
+        if(!response.ok){
+            throw new Error(
+                `Road status HTTP ${response.status}`
+            );
+        }
+
+        const data =
+            await response.json();
+
+
+        const blocked =
+            Number(
+                data.blocked_reports_24h ||
+                0
+            );
+
+        const restricted =
+            Number(
+                data.restricted_reports_24h ||
+                0
+            );
+
+
+        document.getElementById(
+            "gisRoadCount"
+        ).textContent =
+            blocked + restricted;
+
+
+        document.getElementById(
+            "gisRoadMeta"
+        ).textContent =
+            `${blocked} blocked · ${restricted} restricted · field reports, last 24h`;
+
+
+        const features =
+            (data.latest_reports || [])
+                .filter(
+                    report =>
+                        report.lat != null &&
+                        report.lon != null
+                )
+                .map(
+                    report => {
+
+                        const blob =
+                            (
+                                `${report.hazard_type || ""} ` +
+                                `${report.remarks || ""}`
+                            )
+                            .toLowerCase();
+
+                        const isBlocked =
+                            (
+                                blob.includes(
+                                    "blocked"
+                                ) ||
+                                Number(
+                                    report.severity
+                                ) >= 4
+                            );
+
+                        return {
+
+                            type:"Feature",
+
+                            geometry:{
+
+                                type:"Point",
+
+                                coordinates:[
+                                    Number(
+                                        report.lon
+                                    ),
+                                    Number(
+                                        report.lat
+                                    )
+                                ]
+
+                            },
+
+                            properties:{
+
+                                status:
+                                    isBlocked
+                                        ? "Blocked"
+                                        : "Restricted",
+
+                                district:
+                                    report.district ||
+                                    "Unknown",
+
+                                severity:
+                                    report.severity ||
+                                    0,
+
+                                hazard_type:
+                                    report.hazard_type ||
+                                    "Road disruption",
+
+                                remarks:
+                                    report.remarks ||
+                                    "",
+
+                                created_at:
+                                    report.created_at
+
+                            }
+
+                        };
+
+                    }
+                );
+
+
+        const geojson = {
+
+            type:"FeatureCollection",
+
+            features
+
+        };
+
+
+        if(
+            map.getSource(
+                "road-status"
+            )
+        ){
+
+            map.getSource(
+                "road-status"
+            ).setData(
+                geojson
+            );
+
+        }else{
+
+            map.addSource(
+                "road-status",
+                {
+
+                    type:"geojson",
+
+                    data:
+                        geojson
+
+                }
+            );
+
+
+            map.addLayer({
+
+                id:"road-status",
+
+                type:"circle",
+
+                source:"road-status",
+
+                paint:{
+
+                    "circle-radius":8,
+
+                    "circle-color":[
+                        "match",
+                        ["get","status"],
+                        "Blocked",
+                        "#ef4444",
+                        "#f59e0b"
+                    ],
+
+                    "circle-stroke-width":
+                        2,
+
+                    "circle-stroke-color":
+                        "#ffffff"
+
+                }
+
+            });
+
+
+            map.on(
+                "click",
+                "road-status",
+                function(e){
+
+                    const p =
+                        e.features?.[0]?.properties;
+
+                    if(!p)
+                        return;
+
+                    new maplibregl.Popup()
+
+                        .setLngLat(
+                            e.lngLat
+                        )
+
+                        .setHTML(`
+
+                            <b>
+                                Road ${
+                                    p.status
+                                }
+                            </b><br><br>
+
+                            District:
+                            ${p.district}<br>
+
+                            Type:
+                            ${p.hazard_type}<br>
+
+                            Severity:
+                            ${p.severity}/5<br>
+
+                            ${
+                                p.remarks
+                                    ? `Remarks: ${p.remarks}<br>`
+                                    : ""
+                            }
+
+                            Reported:
+                            ${p.created_at}
+
+                        `)
+
+                        .addTo(map);
+
+                }
+            );
+
+        }
+
+
+    }catch(error){
+
+        console.warn(
+            "Road status GIS layer unavailable:",
+            error
+        );
+
+        document.getElementById(
+            "gisRoadCount"
+        ).textContent =
+            "—";
+
+        document.getElementById(
+            "gisRoadMeta"
+        ).textContent =
+            "Road status API unavailable.";
+
+    }
+
+}
+
+
+async function loadGISSeismicSummary(){
+
+    try{
+
+        const response =
+            await fetch(
+                "/api/seismic?lat=25.5&lon=92.5&radius_km=700"
+            );
+
+        if(!response.ok){
+            throw new Error(
+                "Seismic API unavailable"
+            );
+        }
+
+        const data =
+            await response.json();
+
+        const events =
+            data.events || [];
+
+        const strongest =
+            events.reduce(
+                (
+                    max,
+                    event
+                ) =>
+                    Math.max(
+                        max,
+                        Number(
+                            event.magnitude ||
+                            0
+                        )
+                    ),
+                0
+            );
+
+
+        document.getElementById(
+            "gisSeismicCount"
+        ).textContent =
+            events.length;
+
+
+        document.getElementById(
+            "gisSeismicMeta"
+        ).textContent =
+            events.length
+                ? `${strongest.toFixed(1)} max magnitude · influence ${Math.round(Number(data.seismic_influence || 0) * 100)}%`
+                : "No nearby events above configured threshold.";
+
+    }catch(error){
+
+        console.warn(
+            "GIS seismic summary unavailable:",
+            error
+        );
+
+        document.getElementById(
+            "gisSeismicCount"
+        ).textContent =
+            "—";
+
+        document.getElementById(
+            "gisSeismicMeta"
+        ).textContent =
+            "USGS seismic feed unavailable.";
+
+    }
+
+}
+
+
+/* ==========================================
+   CLICK LOCATION ANALYSIS
+========================================== */
+
+async function analysePoint(
+    lat,
+    lon
+){
+
+    const details =
+        document.getElementById(
+            "details"
+        );
+
+
+    details.innerHTML =
+        `<span style="color:var(--green2)">
+            Fetching live data…
+         </span>`;
+
+
+    try{
+
+
+        /* WEATHER */
+
+        const weatherResponse =
+            await fetch(
+
+                `/api/weather?lat=${lat}&lon=${lon}`
+
+            );
+
+
+        const weather =
+            await weatherResponse.json();
+
+
+        /*
+         * Elevation
+         */
+
+        const elevationResponse =
+            await fetch(
+
+                `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`
+
+            );
+
+
+        const elevationData =
+            await elevationResponse.json();
+
+
+        const elevation =
+            Number(
+                elevationData.results?.[0]?.elevation || 0
+            );
+
+
+        /*
+         * Approx slope
+         */
+
+        const slope =
+            Math.max(
+                10,
+                Math.min(
+                    55,
+                    elevation / 35
+                )
+            );
+
+
+        /*
+         * AI prediction
+         */
+
+        const predictionResponse =
+            await fetch(
+
+                "/api/predict",
+
+                {
+
+                    method:"POST",
+
+                    headers:{
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:JSON.stringify({
+
+                        district:
+                            "GIS Point Probe",
+
+                        rain_72h_mm:
+                            weather.rain_72h_mm ?? 75,
+
+                        soil_moisture_pct:
+                            weather.soil_moisture_pct ?? 50,
+
+                        slope_deg:
+                            slope
+
+                    })
+
+                }
+
+            );
+
+
+        const prediction =
+            await predictionResponse.json();
+
+
+        const risk =
+            prediction.hazard_index ?? 0;
+
+
+        const riskColour =
+            riskColor(risk);
+
+
+        details.innerHTML = `
+
+            <div class="metric">
+
+                <span>Latitude</span>
+
+                <b>
+                    ${lat.toFixed(4)}°
+                </b>
+
+            </div>
+
+
+            <div class="metric">
+
+                <span>Longitude</span>
+
+                <b>
+                    ${lon.toFixed(4)}°
+                </b>
+
+            </div>
+
+
+            <div class="metric">
+
+                <span>Elevation</span>
+
+                <b>
+                    ${Math.round(elevation)} m
+                </b>
+
+            </div>
+
+
+            <div class="metric">
+
+                <span>Slope</span>
+
+                <b>
+                    ${slope.toFixed(1)}°
+                </b>
+
+            </div>
+
+
+            <div class="metric">
+
+                <span>72h Rainfall</span>
+
+                <b>
+                    ${Number(
+                        weather.rain_72h_mm ?? 0
+                    ).toFixed(1)} mm
+                </b>
+
+            </div>
+
+
+            <div class="metric">
+
+                <span>Soil Moisture</span>
+
+                <b>
+                    ${Number(
+                        weather.soil_moisture_pct ?? 0
+                    ).toFixed(1)}%
+                </b>
+
+            </div>
+
+
+            <div class="metric">
+
+                <span>AI Risk</span>
+
+                <b style="color:${riskColour}">
+                    ${risk}%
+                </b>
+
+            </div>
+
+        `;
+
+
+        new maplibregl.Popup()
+
+            .setLngLat([
+                lon,
+                lat
+            ])
+
+            .setHTML(`
+
+                <b>GIS Hazard Analysis</b><br><br>
+
+                Elevation:
+                ${Math.round(elevation)}
+                m<br>
+
+                Slope:
+                ${slope.toFixed(1)}
+                °<br>
+
+                Rainfall:
+                ${Number(
+                    weather.rain_72h_mm ?? 0
+                ).toFixed(1)}
+                mm<br>
+
+                Soil moisture:
+                ${Number(
+                    weather.soil_moisture_pct ?? 0
+                ).toFixed(1)}
+                %<br><br>
+
+                <b style="color:${riskColour}">
+                    Landslide Risk:
+                    ${risk}%
+                </b>
+
+            `)
+
+            .addTo(map);
+
+
+    }catch(error){
+
+        console.error(error);
+
+        details.innerHTML =
+            `<span style="color:#fb7185">
+                Live analysis unavailable.
+             </span>`;
+
+    }
+
+}
+
+
+
+/* ==========================================
+   BASE MAP SWITCH
+========================================== */
+
+document
+    .getElementById("baseLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            const value = e.target.value;
+
+
+            if(!map)
+                return;
+
+
+            map.setLayoutProperty(
+                "street",
+                "visibility",
+                value === "street"
+                    ? "visible"
+                    : "none"
+            );
+
+
+            map.setLayoutProperty(
+                "topo",
+                "visibility",
+                value === "topo"
+                    ? "visible"
+                    : "none"
+            );
+
+
+            map.setLayoutProperty(
+                "satellite",
+                "visibility",
+                value === "satellite"
+                    ? "visible"
+                    : "none"
+            );
+
+        }
+    );
+
+
+
+/* ==========================================
+   DISTRICT FOCUS
+========================================== */
+
+document
+    .getElementById("district")
+    .addEventListener(
+        "change",
+        function(e){
+
+            const d =
+                DISTRICTS.find(
+                    x =>
+                        x.id === e.target.value
+                );
+
+
+            if(!d){
+
+                map.flyTo({
+                    center:[
+                        92.9376,
+                        26.2006
+                    ],
+
+                    zoom:6.2
+                });
+
+                return;
+
+            }
+
+
+            map.flyTo({
+
+                center:[
+                    d.lon,
+                    d.lat
+                ],
+
+                zoom:8.5
+
+            });
+
+
+            analysePoint(
+                d.lat,
+                d.lon
+            );
+
+        }
+    );
+
+
+
+/* ==========================================
+   LAYER TOGGLES
+========================================== */
+
+document
+    .getElementById("riskLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer("risk")
+            ){
+
+                map.setLayoutProperty(
+
+                    "risk",
+
+                    "visibility",
+
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+
+                );
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("districtLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer("districts")
+            ){
+
+                map.setLayoutProperty(
+
+                    "districts",
+
+                    "visibility",
+
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+
+                );
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("reportLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer("reports")
+            ){
+
+                map.setLayoutProperty(
+
+                    "reports",
+
+                    "visibility",
+
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+
+                );
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("quakeLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer("earthquakes")
+            ){
+
+                map.setLayoutProperty(
+
+                    "earthquakes",
+
+                    "visibility",
+
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+
+                );
+
+            }
+
+        }
+    );
+
+
+
+
+/* ==========================================
+   ASSET LAYER TOGGLES
+========================================== */
+
+document
+    .getElementById("roadLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer("roads")
+            ){
+
+                map.setLayoutProperty(
+                    "roads",
+                    "visibility",
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+                );
+
+            }
+
+            if(
+                map &&
+                map.getLayer("roads-casing")
+            ){
+
+                map.setLayoutProperty(
+                    "roads-casing",
+                    "visibility",
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+                );
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("villageLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer("villages")
+            ){
+
+                map.setLayoutProperty(
+                    "villages",
+                    "visibility",
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+                );
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("infrastructureLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer("infrastructure")
+            ){
+
+                map.setLayoutProperty(
+                    "infrastructure",
+                    "visibility",
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+                );
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("sensorLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer(
+                    "soil-sensors"
+                )
+            ){
+
+                map.setLayoutProperty(
+                    "soil-sensors",
+                    "visibility",
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+                );
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("roadStatusLayer")
+    .addEventListener(
+        "change",
+        function(e){
+
+            if(
+                map &&
+                map.getLayer(
+                    "road-status"
+                )
+            ){
+
+                map.setLayoutProperty(
+                    "road-status",
+                    "visibility",
+                    e.target.checked
+                        ? "visible"
+                        : "none"
+                );
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("historicalLayer")
+    .addEventListener(
+        "change",
+        async function(e){
+
+            if(!e.target.checked){
+
+                if(
+                    map &&
+                    map.getLayer("historical-landslides")
+                ){
+
+                    map.setLayoutProperty(
+                        "historical-landslides",
+                        "visibility",
+                        "none"
+                    );
+
+                }
+
+                return;
+
+            }
+
+            if(!historicalLandslideLoaded){
+
+                await loadHistoricalLandslides();
+
+            }
+
+            if(
+                map &&
+                map.getLayer("historical-landslides")
+            ){
+
+                map.setLayoutProperty(
+                    "historical-landslides",
+                    "visibility",
+                    "visible"
+                );
+
+            }
+
+        }
+    );
+
+
+/* ==========================================
+   SEARCH
+========================================== */
+
+document
+    .getElementById("searchBtn")
+    .addEventListener(
+        "click",
+        function(){
+
+            searchLocation();
+
+        }
+    );
+
+
+document
+    .getElementById("searchInput")
+    .addEventListener(
+        "keydown",
+        function(e){
+
+            if(e.key === "Enter"){
+
+                searchLocation();
+
+            }
+
+        }
+    );
+
+
+function searchLocation(){
+
+    const value =
+        document
+        .getElementById(
+            "searchInput"
+        )
+        .value
+        .trim()
+        .toLowerCase();
+
+
+    const district =
+        DISTRICTS.find(
+            d =>
+                d.name
+                    .toLowerCase()
+                    .includes(value) ||
+
+                d.state
+                    .toLowerCase()
+                    .includes(value)
+        );
+
+
+    if(!district){
+
+        alert(
+            "Try a configured district such as Gangtok, Dima Hasao, Assam or Meghalaya."
+        );
+
+        return;
+
+    }
+
+
+    document
+        .getElementById(
+            "district"
+        )
+        .value =
+        district.id;
+
+
+    map.flyTo({
+
+        center:[
+            district.lon,
+            district.lat
+        ],
+
+        zoom:8.5
+
+    });
+
+
+    analysePoint(
+        district.lat,
+        district.lon
+    );
+
+}
+
+
+
+
+/* ==========================================
+   LIVE GIS REFRESH
+========================================== */
+
+let gisLiveRefreshTimer = null;
+
+
+function startGISLiveRefresh(){
+
+    if(gisLiveRefreshTimer){
+        clearInterval(
+            gisLiveRefreshTimer
+        );
+    }
+
+    gisLiveRefreshTimer =
+        setInterval(
+            async function(){
+
+                const results =
+                    await Promise.allSettled([
+
+                        buildRiskGrid(),
+
+                        loadSoilSensorLayer(),
+
+                        loadRoadStatusLayer(),
+
+                        loadGISSeismicSummary(),
+
+                        loadEarthquakes()
+
+                    ]);
+
+                const failed =
+                    results.filter(
+                        result =>
+                            result.status === "rejected"
+                    ).length;
+
+                if(failed){
+
+                    console.warn(
+                        `GIS refresh: ${failed} feed(s) failed`
+                    );
+
+                }
+
+            },
+            3 * 60 * 1000
+        );
+
+}
+
+/* ==========================================
+   MOBILE SIDEBAR
+========================================== */
+
+document
+    .getElementById("togglePanel")
+    .addEventListener(
+        "click",
+        function(){
+
+            document
+                .getElementById(
+                    "panel"
+                )
+                .classList.toggle(
+                    "open"
+                );
+
+        }
+    );
+
+
+
+/* START */
+
+loadGISBackendStatus();
+initMap();
+
+</script>
+
+<!-- PRAVAH Site-wide Translate Widget scripts -->
+<script src="/static/js/translate-widget.js"></script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+</body>
+</html>

@@ -823,9 +823,6 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_reports_created_at
             ON reports (created_at DESC);
 
-        CREATE INDEX IF NOT EXISTS idx_reports_verification_status
-            ON reports (verification_status);
-
         CREATE INDEX IF NOT EXISTS idx_sensor_type_recorded
             ON sensor_readings (sensor_type, recorded_at DESC);
 
@@ -851,6 +848,10 @@ def init_db():
     ):
         if col not in existing_cols:
             conn.execute(f"ALTER TABLE reports ADD COLUMN {col} {coltype}")
+            conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reports_verification_status "
+        "ON reports (verification_status)"
+    )
 
     # Migrate prediction records to store the additional seismic model input.
     prediction_cols = {

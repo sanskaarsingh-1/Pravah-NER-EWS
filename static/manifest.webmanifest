@@ -1,0 +1,10 @@
+{
+  "name": "Pravah — NER Landslide Early Warning System",
+  "short_name": "Pravah NER",
+  "start_url": "/dashboard.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f2ea",
+  "theme_color": "#182c24",
+  "description": "Cloud-connected landslide early warning dashboard with offline field reporting and sync."
+}
